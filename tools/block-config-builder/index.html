@@ -135,6 +135,20 @@
       margin-bottom: 8px;
     }
     .title { font-size: 14px; font-weight: 700; }
+    .title-row { display: flex; align-items: center; gap: 6px; }
+    .help-dot {
+      width: 16px;
+      height: 16px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      color: #c8dafc;
+      background: #12203f;
+      cursor: help;
+    }
     .meta { color: var(--muted); font-size: 12px; }
     .controls { display: flex; align-items: center; gap: 8px; }
     .toggle { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); }
@@ -144,6 +158,7 @@
     .nested-panel {
       --depth: 1;
       border: 1px solid var(--border);
+      border-left: 3px solid color-mix(in srgb, var(--accent) calc(35% + min(var(--depth), 6) * 8%), var(--border));
       border-radius: 10px;
       padding: 10px;
       background: color-mix(in oklab, var(--panel-2) calc(90% - min(var(--depth), 6) * 6%), white);
@@ -172,6 +187,81 @@
     .field textarea { min-height: 80px; resize: vertical; }
     .field .hint { font-size: 11px; color: var(--muted); }
     .field-error { color: #ff9cab; font-size: 11px; }
+    .field.invalid input, .field.invalid textarea, .field.invalid select, .field.invalid .tag-input {
+      border-color: var(--danger);
+      box-shadow: 0 0 0 1px color-mix(in srgb, var(--danger) 50%, transparent);
+    }
+    .label-row { display: flex; align-items: center; gap: 6px; }
+    .switch {
+      position: relative;
+      width: 42px;
+      height: 24px;
+      border-radius: 999px;
+      background: #243155;
+      border: 1px solid var(--border);
+      transition: background .18s ease;
+      cursor: pointer;
+    }
+    .switch > input {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      cursor: pointer;
+      margin: 0;
+    }
+    .switch::after {
+      content: '';
+      position: absolute;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      top: 2px;
+      left: 3px;
+      background: #e6ebf8;
+      transition: transform .18s ease;
+    }
+    .switch.on { background: color-mix(in srgb, var(--accent) 65%, #0f2145); }
+    .switch.on::after { transform: translateX(17px); }
+    .tag-input {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: #0e1529;
+      padding: 6px;
+      min-height: 40px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 3px 8px;
+      border-radius: 999px;
+      background: #22355f;
+      color: #dbe7ff;
+      font-size: 12px;
+    }
+    .tag button {
+      border: 0;
+      background: transparent;
+      color: #adc4f2;
+      cursor: pointer;
+      font-size: 12px;
+      line-height: 1;
+      padding: 0;
+    }
+    .tag-input-editor {
+      flex: 1;
+      min-width: 120px;
+      border: 0;
+      background: transparent;
+      color: var(--text);
+      outline: none;
+      padding: 4px;
+      font-size: 13px;
+    }
     .error-panel {
       border-top: 1px solid var(--border);
       padding: 10px 12px;
@@ -504,6 +594,7 @@ function createBlock(moduleName, page, preset = {}) {
     moduleName,
     pageId: page.page_id,
     title: preset.__title || page.title || page.page_id,
+    pageDescription: page.description || '',
     sourcePath: page.source_path,
     active: true,
     fields: page.fields || {},
@@ -685,7 +776,10 @@ function renderWorkspace() {
     card.innerHTML = `
       <div class="block-header">
         <div>
-          <div class="title">${escapeHtml(block.title)}</div>
+          <div class="title-row">
+            <div class="title">${escapeHtml(block.title)}</div>
+            <span class="help-dot" title="${escapeHtml(block.pageDescription || block.sourcePath || '來源：sing-box schema 定義')}" aria-label="schema hint">?</span>
+          </div>
           <div class="meta">${escapeHtml(block.moduleName)} · ${escapeHtml(block.sourcePath || block.pageId)}${escapeHtml(scopeMeta)}</div>
         </div>
         <div class="controls">
@@ -781,13 +875,14 @@ function bindWorkspaceDelegation() {
   els.blocks.addEventListener('input', (event) => {
     const field = event.target.closest('[data-block-id][data-field-path]');
     if (!field) return;
-    if (field.dataset.role === 'object-toggle') return;
+    if (field.dataset.role === 'object-toggle' || field.dataset.role === 'tag-editor') return;
     handleFieldMutation(field);
   });
 
   els.blocks.addEventListener('change', (event) => {
     const target = event.target;
     if (!(target instanceof HTMLInputElement || target instanceof HTMLSelectElement || target instanceof HTMLTextAreaElement)) return;
+    if (target.dataset.role === 'tag-editor') return;
     const card = target.closest('.block');
     const index = Number(card?.dataset.index);
     const block = state.blocksData[index];
@@ -837,6 +932,43 @@ function bindWorkspaceDelegation() {
       return;
     }
 
+    if (target.dataset.role === 'tag-remove') {
+      const fieldPath = target.dataset.fieldPath;
+      const chipIndex = Number(target.dataset.tagIndex);
+      if (!fieldPath || Number.isNaN(chipIndex)) return;
+      const value = getNestedValue(block.values, fieldPath);
+      if (!Array.isArray(value)) return;
+      value.splice(chipIndex, 1);
+      setNestedValue(block.values, fieldPath, value);
+      rerenderOutput({ refreshWorkspace: false });
+      debouncedWorkspaceRefresh();
+      return;
+    }
+
+  });
+
+  els.blocks.addEventListener('keydown', (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLInputElement) || target.dataset.role !== 'tag-editor') return;
+    if (!(event.key === 'Enter' || event.key === ',')) return;
+    event.preventDefault();
+    const fieldPath = target.dataset.fieldPath;
+    const blockId = target.dataset.blockId;
+    if (!fieldPath || !blockId) return;
+    const block = state.blocksData.find((item) => item.id === blockId);
+    if (!block) return;
+    const raw = target.value.trim().replace(/,$/, '');
+    if (!raw) return;
+    const type = target.dataset.fieldType;
+    const nextValue = type === 'array_integer' ? Number(raw) : raw;
+    if (type === 'array_integer' && !Number.isFinite(nextValue)) return;
+    const list = getNestedValue(block.values, fieldPath);
+    const normalized = Array.isArray(list) ? [...list] : [];
+    normalized.push(nextValue);
+    setNestedValue(block.values, fieldPath, normalized);
+    target.value = '';
+    rerenderOutput({ refreshWorkspace: false });
+    debouncedWorkspaceRefresh();
   });
 }
 
@@ -845,13 +977,25 @@ function renderField(block, fieldName, spec, depth = 0, breadcrumb = []) {
   wrap.className = 'field';
 
   const label = document.createElement('label');
+  const labelRow = document.createElement('span');
+  labelRow.className = 'label-row';
   const labelName = fieldName.includes('.') ? fieldName.split('.').at(-1) : fieldName;
-  label.textContent = labelName + (spec.required ? ' *' : '');
+  labelRow.textContent = labelName + (spec.required ? ' *' : '');
+  if (spec.description) {
+    const icon = document.createElement('span');
+    icon.className = 'help-dot';
+    icon.title = spec.description;
+    icon.textContent = '?';
+    label.appendChild(labelRow);
+    label.appendChild(icon);
+  } else {
+    label.appendChild(labelRow);
+  }
   wrap.appendChild(label);
 
   const current = getNestedValue(block.values, fieldName);
   const type = spec?.type;
-  const allowed = Array.isArray(spec.allowedValues) ? spec.allowedValues : null;
+  const allowed = extractEnumValues(spec);
 
   let input;
   if (allowed?.length) {
@@ -864,13 +1008,33 @@ function renderField(block, fieldName, spec, depth = 0, breadcrumb = []) {
       input.appendChild(opt);
     }
   } else if (type === 'boolean') {
+    const switchWrap = document.createElement('label');
+    switchWrap.className = `switch ${current ? 'on' : ''}`;
     input = document.createElement('input');
     input.type = 'checkbox';
     input.checked = Boolean(current);
+    input.addEventListener('change', () => {
+      switchWrap.classList.toggle('on', input.checked);
+    });
+    switchWrap.appendChild(input);
+    wrap.appendChild(switchWrap);
   } else if (type === 'array_integer' || type === 'array_object') {
-    input = document.createElement('textarea');
-    input.placeholder = '每行一個值（Tag Input）';
-    input.value = Array.isArray(current) ? current.join('\n') : '';
+    const list = Array.isArray(current) ? current : [];
+    const tagWrap = document.createElement('div');
+    tagWrap.className = 'tag-input';
+    list.forEach((item, idx) => {
+      const chip = document.createElement('span');
+      chip.className = 'tag';
+      chip.innerHTML = `${escapeHtml(String(item))} <button type="button" data-role="tag-remove" data-tag-index="${idx}" data-field-path="${escapeHtml(fieldName)}">×</button>`;
+      tagWrap.appendChild(chip);
+    });
+    input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'tag-input-editor';
+    input.placeholder = type === 'array_integer' ? '輸入數字，回車新增' : '輸入內容，回車新增';
+    input.dataset.role = 'tag-editor';
+    tagWrap.appendChild(input);
+    wrap.appendChild(tagWrap);
   } else if (type === 'object') {
     const objectWrap = document.createElement('div');
     const objectToggle = document.createElement('label');
@@ -906,7 +1070,9 @@ function renderField(block, fieldName, spec, depth = 0, breadcrumb = []) {
 
   if (input) {
     bindFieldDataset(input, block.id, fieldName, type);
-    wrap.appendChild(input);
+    if (!(type === 'boolean' || type === 'array_integer' || type === 'array_object')) {
+      wrap.appendChild(input);
+    }
   }
 
   if (spec.description) {
@@ -917,10 +1083,13 @@ function renderField(block, fieldName, spec, depth = 0, breadcrumb = []) {
   }
 
   const fieldErrors = validateField(getNestedValue(block.values, fieldName), spec);
-  if (fieldErrors.length) {
+  const keyErrors = validateShadowsocksKey(block, fieldName, getNestedValue(block.values, fieldName));
+  const mergedErrors = [...fieldErrors, ...keyErrors];
+  if (mergedErrors.length) {
+    wrap.classList.add('invalid');
     const err = document.createElement('div');
     err.className = 'field-error';
-    err.textContent = fieldErrors.join('；');
+    err.textContent = mergedErrors.join('；');
     wrap.appendChild(err);
   }
 
@@ -936,12 +1105,7 @@ function bindFieldDataset(input, blockId, fieldPath, type) {
 function readInputValue(input, type) {
   if (type === 'boolean') return input.checked;
   if (type === 'integer') return Number(input.value || 0);
-  if (type === 'array_integer') {
-    return input.value.split('\n').map(v => v.trim()).filter(Boolean).map(v => Number(v));
-  }
-  if (type === 'array_object') {
-    return input.value.split('\n').map(v => v.trim()).filter(Boolean);
-  }
+  if (type === 'array_integer' || type === 'array_object') return input.value;
   if (type === 'object') {
     try {
       return input.value.trim() ? JSON.parse(input.value) : {};
@@ -960,7 +1124,31 @@ function validateField(value, spec) {
   if (value && typeof value === 'object' && value.__parse_error) errs.push('Object JSON 格式錯誤');
   if (spec.type === 'integer' && typeof value !== 'number') errs.push('需為數字');
   if (spec.type === 'array_integer' && !Array.isArray(value)) errs.push('需為數組');
+  if (typeof value === 'string' && spec.type === 'string') {
+    const desc = String(spec.description || '').toLowerCase();
+    if (desc.includes('cidr') && value) {
+      const cidrOk = /^(?:\d{1,3}\.){3}\d{1,3}\/\d{1,2}$/.test(value);
+      if (!cidrOk) errs.push('CIDR 格式錯誤');
+    }
+    if (desc.includes('ip') && !desc.includes('cidr') && value) {
+      const ipOk = /^(?:\d{1,3}\.){3}\d{1,3}$/.test(value);
+      if (!ipOk) errs.push('IP 格式錯誤');
+    }
+  }
   return errs;
+}
+
+function extractEnumValues(spec) {
+  const candidates = [spec?.allowedValues, spec?.enum, spec?.options, spec?.oneOf];
+  for (const candidate of candidates) {
+    if (!Array.isArray(candidate) || !candidate.length) continue;
+    if (candidate.every((item) => ['string', 'number', 'boolean'].includes(typeof item))) return candidate;
+    const constValues = candidate
+      .map((item) => (item && typeof item === 'object' && Object.hasOwn(item, 'const') ? item.const : undefined))
+      .filter((item) => item !== undefined);
+    if (constValues.length) return constValues;
+  }
+  return null;
 }
 
 function validateShadowsocksKey(block, fieldName, value) {
