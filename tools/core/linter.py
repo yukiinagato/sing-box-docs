@@ -9,6 +9,46 @@ from typing import Any
 
 from tools.core.constants import NON_NATIVE_FIELD_PREFIXES, SHADOWSOCKS_2022_KEY_BYTES
 
+ALLOWED_ROOT_KEYS = {
+    "log",
+    "dns",
+    "ntp",
+    "certificate",
+    "certificate_providers",
+    "endpoints",
+    "inbounds",
+    "outbounds",
+    "route",
+    "services",
+    "experimental",
+}
+
+SHARED_OBJECT_ROOT_KEYS = {
+    "tls",
+    "transport",
+    "v2ray_transport",
+    "multiplex",
+    "tcp_brutal",
+    "udp_over_tcp",
+}
+
+TLS_SUB_FIELDS = {
+    "disable_sni",
+    "server_name",
+    "insecure",
+    "alpn",
+    "min_version",
+    "max_version",
+    "cipher_suites",
+    "certificate",
+    "certificate_path",
+    "key",
+    "key_path",
+    "ech",
+    "ech_server_keys",
+    "utls",
+    "reality",
+}
 
 @dataclass
 class LintResult:
@@ -24,6 +64,8 @@ class ProjectLinter:
         warnings: list[str] = []
 
         self._strip_non_native_fields(normalized, warnings)
+        self._repair_root_scope_pollution(normalized, warnings)
+        self._repair_shared_child_scopes(normalized, warnings)
         self._normalize_dns_route_shapes(normalized, warnings)
         self._validate_shadowsocks_keys(normalized)
 
@@ -41,6 +83,74 @@ class ProjectLinter:
         if isinstance(node, list):
             for idx, item in enumerate(node):
                 self._strip_non_native_fields(item, warnings, f"{path}[{idx}]")
+
+    def _repair_root_scope_pollution(self, config: dict[str, Any], warnings: list[str]) -> None:
+        inbounds = config.get("inbounds") if isinstance(config.get("inbounds"), list) else []
+        outbounds = config.get("outbounds") if isinstance(config.get("outbounds"), list) else []
+
+        for key in list(config.keys()):
+            if key in ALLOWED_ROOT_KEYS:
+                continue
+
+            value = config.get(key)
+            if key in SHARED_OBJECT_ROOT_KEYS:
+                target_type = self._pick_target_type_for_shared_key(key, value, inbounds, outbounds)
+                target_node = self._pick_target_node(target_type, inbounds, outbounds)
+                if target_node is not None:
+                    normalized_key = "transport" if key in {"transport", "v2ray_transport"} else key
+                    target_node[normalized_key] = value
+                    warnings.append(
+                        f"moved illegal root field '{key}' into {target_type}[0].{normalized_key}"
+                    )
+                    config.pop(key, None)
+                    continue
+
+            warnings.append(f"illegal root field '{key}' detected at $.{key}; removed")
+            config.pop(key, None)
+
+    def _repair_shared_child_scopes(self, config: dict[str, Any], warnings: list[str]) -> None:
+        for idx, node in enumerate(config.get("inbounds", [])):
+            if isinstance(node, dict):
+                self._merge_misplaced_tls_fields(node, f"$.inbounds[{idx}]", warnings)
+        for idx, node in enumerate(config.get("outbounds", [])):
+            if isinstance(node, dict):
+                self._merge_misplaced_tls_fields(node, f"$.outbounds[{idx}]", warnings)
+
+    def _merge_misplaced_tls_fields(self, node: dict[str, Any], path: str, warnings: list[str]) -> None:
+        moved: dict[str, Any] = {}
+        for key in list(node.keys()):
+            if key in TLS_SUB_FIELDS:
+                moved[key] = node.pop(key)
+        if moved:
+            tls = node.get("tls")
+            if not isinstance(tls, dict):
+                tls = {"enabled": True} if moved else {}
+                node["tls"] = tls
+            tls.update(moved)
+            warnings.append(f"moved misplaced TLS fields under {path}.tls")
+
+    def _pick_target_type_for_shared_key(
+        self,
+        key: str,
+        value: Any,
+        inbounds: list[Any],
+        outbounds: list[Any],
+    ) -> str:
+        if key == "multiplex":
+            return "outbound" if outbounds else "inbound"
+        if key == "udp_over_tcp":
+            return "inbound" if inbounds else "outbound"
+        if isinstance(value, dict):
+            if any(k in value for k in {"listen", "listen_port", "users", "sniff"}):
+                return "inbound" if inbounds else "outbound"
+            if any(k in value for k in {"server", "server_port", "uuid", "password"}):
+                return "outbound" if outbounds else "inbound"
+        return "outbound" if outbounds else "inbound"
+
+    def _pick_target_node(self, target_type: str, inbounds: list[Any], outbounds: list[Any]) -> dict[str, Any] | None:
+        if target_type == "inbound":
+            return inbounds[0] if inbounds and isinstance(inbounds[0], dict) else None
+        return outbounds[0] if outbounds and isinstance(outbounds[0], dict) else None
 
     def _normalize_dns_route_shapes(self, config: dict[str, Any], warnings: list[str]) -> None:
         dns = config.get("dns")

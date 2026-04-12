@@ -232,6 +232,19 @@ const ARRAY_BUCKETS = {
   service: 'services'
 };
 
+const ROOT_ALLOWED_KEYS = new Set([
+  'log', 'dns', 'ntp', 'certificate', 'certificate_providers',
+  'endpoints', 'inbounds', 'outbounds', 'route', 'services', 'experimental'
+]);
+
+const SHARED_NESTED_PAGE_TO_KEY = {
+  tls: 'tls',
+  multiplex: 'multiplex',
+  'v2ray-transport': 'transport',
+  'tcp-brutal': 'tcp_brutal',
+  'udp-over-tcp': 'udp_over_tcp',
+};
+
 const KNOWN_SCHEMA_FILES = [
   'certificate.json','dns.json','endpoint.json','experimental.json','inbound.json','log.json','ntp.json','outbound.json','route.json','rule-set.json','service.json','shared.json'
 ];
@@ -266,6 +279,9 @@ const ProjectLinter = {
   },
   validateProject(config) {
     const errors = [];
+    Object.keys(config || {}).forEach((key) => {
+      if (!ROOT_ALLOWED_KEYS.has(key)) errors.push(`非法根級字段: ${key}`);
+    });
     const ports = (config.inbounds || []).map((i) => i?.listen_port).filter((p) => Number.isInteger(p));
     const dup = ports.find((p, i) => ports.indexOf(p) !== i);
     if (dup) errors.push(`端口衝突：inbounds.listen_port ${dup} 重複`);
@@ -463,6 +479,7 @@ function createBlock(moduleName, page, preset = {}) {
     fields: page.fields || {},
     values,
     basePayload,
+    sharedTarget: preset.__sharedTarget || 'outbound',
   };
 }
 
@@ -547,6 +564,17 @@ function pushBlockFromPayload(moduleName, payload, preferredPageId = '', titleFa
   addBlockByPage(moduleName, page, { ...payload, __title: title });
 }
 
+function pushSharedBlocksFromParent(parentPayload, sharedTarget) {
+  if (!parentPayload || typeof parentPayload !== 'object') return;
+  Object.entries(SHARED_NESTED_PAGE_TO_KEY).forEach(([pageId, nestedKey]) => {
+    const nested = parentPayload[nestedKey];
+    if (!nested || typeof nested !== 'object') return;
+    const page = findBestPage('shared', nested, pageId);
+    if (!page) return;
+    addBlockByPage('shared', page, { ...nested, __title: `↳ ${page.title || pageId}`, __sharedTarget: sharedTarget });
+  });
+}
+
 function syncUIFromCurrentConfig(config) {
   if (!config || typeof config !== 'object') return;
   const inbounds = Array.isArray(config.inbounds) ? config.inbounds : [];
@@ -560,9 +588,11 @@ function syncUIFromCurrentConfig(config) {
   inbounds.forEach((inbound) => {
     const title = inbound?.type === 'tun' ? 'TUN Inbound' : '';
     pushBlockFromPayload('inbound', inbound, inbound?.type || '', title);
+    pushSharedBlocksFromParent(inbound, 'inbound');
   });
   outbounds.forEach((outbound) => {
     pushBlockFromPayload('outbound', outbound, outbound?.type || '');
+    pushSharedBlocksFromParent(outbound, 'outbound');
   });
   dnsServers.forEach((server) => {
     pushBlockFromPayload('dns', server, server?.type || 'server', 'DNS Server');
@@ -614,9 +644,10 @@ function renderWorkspace() {
       <div class="block-header">
         <div>
           <div class="title">${escapeHtml(block.title)}</div>
-          <div class="meta">${escapeHtml(block.moduleName)} · ${escapeHtml(block.sourcePath || block.pageId)}</div>
+          <div class="meta">${escapeHtml(block.moduleName)} · ${escapeHtml(block.sourcePath || block.pageId)}${block.moduleName === 'shared' ? ` · 子塊 → ${escapeHtml(block.sharedTarget)}` : ''}</div>
         </div>
         <div class="controls">
+          ${block.moduleName === 'shared' ? '<label class="toggle">歸屬<select data-role="shared-target"><option value="outbound">outbound</option><option value="inbound">inbound</option></select></label>' : ''}
           <label class="toggle"><input type="checkbox" ${block.active ? 'checked' : ''} data-role="toggle">啟用</label>
           <button class="delete" data-role="delete">刪除</button>
         </div>
@@ -634,6 +665,14 @@ function renderWorkspace() {
       renderWorkspace();
       rerenderOutput();
     };
+    if (block.moduleName === 'shared') {
+      const targetSel = card.querySelector('[data-role="shared-target"]');
+      targetSel.value = block.sharedTarget || 'outbound';
+      targetSel.onchange = (e) => {
+        block.sharedTarget = e.target.value;
+        rerenderOutput();
+      };
+    }
 
     const grid = card.querySelector('.grid');
     Object.entries(block.fields).forEach(([fieldName, spec]) => {
@@ -825,6 +864,43 @@ function migrateLegacy14(result, errors) {
     result.route = { rules: [] };
   }
   if (!Array.isArray(result.route.rules)) result.route.rules = [];
+
+  const inbounds = Array.isArray(result.inbounds) ? result.inbounds : [];
+  const outbounds = Array.isArray(result.outbounds) ? result.outbounds : [];
+  for (const key of Object.keys(result)) {
+    if (ROOT_ALLOWED_KEYS.has(key)) continue;
+    if (key === 'tls' || key === 'transport' || key === 'multiplex' || key === 'tcp_brutal' || key === 'udp_over_tcp') {
+      const target = outbounds[0] || inbounds[0];
+      if (target && typeof target === 'object') {
+        target[key] = result[key];
+        delete result[key];
+        errors.push(`已自動修復頂級污染：$.${key} 已遷移到 ${outbounds[0] ? 'outbounds[0]' : 'inbounds[0]'}.${key}`);
+        continue;
+      }
+    }
+    delete result[key];
+    errors.push(`檢測到非法根級字段 $.${key}，已移除`);
+  }
+}
+
+function attachSharedPayload(result, block, payload, errors) {
+  const nestedKey = SHARED_NESTED_PAGE_TO_KEY[block.pageId];
+  if (!nestedKey) {
+    errors.push(`Shared 塊 ${block.pageId} 目前僅支持作為共享子對象（tls/transport/multiplex/tcp_brutal/udp_over_tcp）`);
+    return;
+  }
+  const targetBucket = block.sharedTarget === 'inbound' ? 'inbounds' : 'outbounds';
+  const targetList = result[targetBucket];
+  if (!Array.isArray(targetList) || !targetList.length) {
+    errors.push(`Shared 塊 ${block.pageId} 缺少父級 ${targetBucket}，無法嵌套`);
+    return;
+  }
+  const parent = targetList[targetList.length - 1];
+  if (!parent || typeof parent !== 'object') {
+    errors.push(`Shared 塊 ${block.pageId} 父級 ${targetBucket} 不是對象`);
+    return;
+  }
+  parent[nestedKey] = { ...(parent[nestedKey] || {}), ...payload };
 }
 
 function buildWizardConfig() {
@@ -959,6 +1035,8 @@ function buildMergedConfig() {
       if (!Array.isArray(result[bucket].rules)) result[bucket].rules = [];
     } else if (block.moduleName === 'log') {
       Object.assign(result.log, payload);
+    } else if (block.moduleName === 'shared') {
+      attachSharedPayload(result, block, payload, errors);
     } else {
       if (!result[block.moduleName]) result[block.moduleName] = [];
       result[block.moduleName].push(payload);
