@@ -1,0 +1,589 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>sing-box Block Config Builder</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0b1020;
+      --panel: #141b2d;
+      --panel-2: #1b2440;
+      --border: #2b3557;
+      --text: #e9edf8;
+      --muted: #9ea9c7;
+      --accent: #3f8cff;
+      --danger: #ff5d73;
+      --ok: #2ecc71;
+      --warn: #ffb020;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      background: radial-gradient(circle at 0 0, #151f3b, var(--bg));
+      color: var(--text);
+      min-height: 100vh;
+    }
+    .layout {
+      display: grid;
+      grid-template-columns: 280px minmax(540px, 1fr) 420px;
+      min-height: 100vh;
+      gap: 12px;
+      padding: 12px;
+    }
+    .panel {
+      background: color-mix(in oklab, var(--panel) 92%, black);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .panel h2 {
+      margin: 0;
+      font-size: 14px;
+      font-weight: 700;
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--border);
+      letter-spacing: .01em;
+    }
+    .panel-content { padding: 12px; overflow: auto; }
+    .module-group { margin-bottom: 12px; }
+    .module-group h3 {
+      margin: 0 0 8px;
+      font-size: 12px;
+      text-transform: uppercase;
+      color: var(--muted);
+      letter-spacing: .06em;
+    }
+    .library-btn, .btn {
+      width: 100%;
+      border: 1px solid var(--border);
+      background: var(--panel-2);
+      color: var(--text);
+      border-radius: 8px;
+      padding: 8px 10px;
+      margin-bottom: 6px;
+      text-align: left;
+      cursor: pointer;
+      font-size: 13px;
+    }
+    .library-btn:hover, .btn:hover { border-color: var(--accent); }
+    .workspace-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px;
+      border-bottom: 1px solid var(--border);
+      gap: 10px;
+    }
+    .workspace-header .actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .btn {
+      width: auto;
+      margin: 0;
+      font-weight: 600;
+      padding: 8px 12px;
+      text-align: center;
+    }
+    .btn.primary { background: var(--accent); border-color: transparent; }
+    .btn.danger { background: color-mix(in srgb, var(--danger) 20%, #2a0d14); border-color: color-mix(in srgb, var(--danger) 50%, var(--border)); }
+    .blocks { padding: 12px; overflow: auto; display: flex; flex-direction: column; gap: 12px; }
+    .empty { border: 1px dashed var(--border); border-radius: 10px; padding: 18px; color: var(--muted); text-align: center; }
+    .block {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: color-mix(in oklab, var(--panel-2) 92%, black);
+      padding: 10px;
+      cursor: grab;
+    }
+    .block.drag-over { border-color: var(--accent); }
+    .block-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 8px;
+    }
+    .title { font-size: 14px; font-weight: 700; }
+    .meta { color: var(--muted); font-size: 12px; }
+    .controls { display: flex; align-items: center; gap: 8px; }
+    .toggle { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); }
+    .delete { border: 1px solid color-mix(in srgb, var(--danger) 70%, var(--border)); background: transparent; color: var(--danger); border-radius: 8px; padding: 4px 8px; cursor: pointer; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fill,minmax(190px,1fr)); gap: 10px; }
+    .field { display: flex; flex-direction: column; gap: 4px; }
+    .field label { font-size: 12px; color: var(--muted); }
+    .field input, .field select, .field textarea {
+      width: 100%;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: #0e1529;
+      color: var(--text);
+      padding: 8px;
+      font-size: 13px;
+    }
+    .field textarea { min-height: 80px; resize: vertical; }
+    .field .hint { font-size: 11px; color: var(--muted); }
+    .field-error { color: #ff9cab; font-size: 11px; }
+    .error-panel {
+      border-top: 1px solid var(--border);
+      padding: 10px 12px;
+      background: #2a1218;
+      color: #ffb7c2;
+      font-size: 12px;
+      max-height: 160px;
+      overflow: auto;
+      white-space: pre-wrap;
+    }
+    .preview { margin: 0; padding: 12px; overflow: auto; font-size: 12px; line-height: 1.45; }
+    .tok-key { color: #9cdcfe; }
+    .tok-str { color: #ce9178; }
+    .tok-num { color: #b5cea8; }
+    .tok-bool { color: #569cd6; }
+    .tok-null { color: #569cd6; }
+  </style>
+</head>
+<body>
+  <div class="layout">
+    <aside class="panel" id="library-panel">
+      <h2>Schema 資源庫</h2>
+      <div class="panel-content" id="library"></div>
+    </aside>
+
+    <section class="panel">
+      <div class="workspace-header">
+        <div>
+          <strong>Block 工作區</strong>
+          <div class="meta">新增、拖拽排序、啟用 / 停用模塊</div>
+        </div>
+        <div class="actions">
+          <button class="btn danger" id="reset-btn">重置全部塊</button>
+        </div>
+      </div>
+      <div class="blocks" id="blocks"></div>
+      <div class="error-panel" id="errors" hidden></div>
+    </section>
+
+    <aside class="panel">
+      <div class="workspace-header">
+        <div>
+          <strong>JSON 預覽</strong>
+          <div class="meta">即時合併結果</div>
+        </div>
+        <div class="actions">
+          <button class="btn" id="copy-btn">複製 JSON</button>
+          <button class="btn primary" id="download-btn">下載 config.json</button>
+        </div>
+      </div>
+      <pre class="preview" id="preview"></pre>
+    </aside>
+  </div>
+
+<script type="module">
+const state = {
+  schemas: new Map(),
+  blocks: [],
+  errors: [],
+};
+
+const ARRAY_BUCKETS = {
+  inbound: 'inbounds',
+  outbound: 'outbounds',
+  dns: 'dns',
+  route: 'route',
+  endpoint: 'endpoints',
+  service: 'services'
+};
+
+const KNOWN_SCHEMA_FILES = [
+  'certificate.json','dns.json','endpoint.json','experimental.json','inbound.json','log.json','ntp.json','outbound.json','route.json','rule-set.json','service.json','shared.json'
+];
+
+const els = {
+  library: document.getElementById('library'),
+  blocks: document.getElementById('blocks'),
+  preview: document.getElementById('preview'),
+  errors: document.getElementById('errors'),
+  reset: document.getElementById('reset-btn'),
+  copy: document.getElementById('copy-btn'),
+  download: document.getElementById('download-btn'),
+};
+
+await bootstrap();
+
+async function bootstrap() {
+  const schemaFiles = await discoverSchemaFiles();
+  await Promise.all(schemaFiles.map(loadSchema));
+  renderLibrary();
+  renderWorkspace();
+  rerenderOutput();
+  bindGlobalActions();
+}
+
+async function discoverSchemaFiles() {
+  try {
+    const resp = await fetch('../../generated/configuration-schemas/');
+    const html = await resp.text();
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    const links = [...doc.querySelectorAll('a[href$=".json"]')].map(a => a.getAttribute('href'));
+    const names = links.map(h => h.split('/').pop()).filter(Boolean);
+    return [...new Set(names)].sort();
+  } catch {
+    return KNOWN_SCHEMA_FILES;
+  }
+}
+
+async function loadSchema(filename) {
+  const url = `../../generated/configuration-schemas/${filename}`;
+  try {
+    const text = await (await fetch(url)).text();
+    const schema = JSON.parse(text);
+    if (schema?.module && Array.isArray(schema.pages)) {
+      state.schemas.set(schema.module, schema);
+    }
+  } catch (error) {
+    state.errors.push(`Schema 載入失敗: ${filename} (${error.message})`);
+  }
+}
+
+function renderLibrary() {
+  const modules = [...state.schemas.values()].sort((a, b) => a.module.localeCompare(b.module));
+  if (!modules.length) {
+    els.library.innerHTML = '<div class="empty">找不到可用 Schema。</div>';
+    return;
+  }
+
+  els.library.innerHTML = '';
+  for (const module of modules) {
+    const group = document.createElement('div');
+    group.className = 'module-group';
+    group.innerHTML = `<h3>${escapeHtml(module.module)}</h3>`;
+
+    for (const page of module.pages) {
+      const btn = document.createElement('button');
+      btn.className = 'library-btn';
+      btn.textContent = page.title || page.page_id;
+      btn.onclick = () => {
+        state.blocks.push(createBlock(module.module, page));
+        renderWorkspace();
+        rerenderOutput();
+      };
+      group.appendChild(btn);
+    }
+    els.library.appendChild(group);
+  }
+}
+
+function createBlock(moduleName, page) {
+  const values = {};
+  for (const [field, spec] of Object.entries(page.fields || {})) {
+    values[field] = inferDefault(spec);
+  }
+  return {
+    id: crypto.randomUUID(),
+    moduleName,
+    pageId: page.page_id,
+    title: page.title || page.page_id,
+    sourcePath: page.source_path,
+    active: true,
+    fields: page.fields || {},
+    values,
+  };
+}
+
+function inferDefault(spec) {
+  if (spec?.default !== undefined) {
+    if (typeof spec.default === 'string') return spec.default;
+    return spec.default;
+  }
+  switch (spec?.type) {
+    case 'string': return '';
+    case 'integer': return 0;
+    case 'boolean': return false;
+    case 'array_integer':
+    case 'array_object': return [];
+    case 'object': return {};
+    default: return null;
+  }
+}
+
+function renderWorkspace() {
+  if (!state.blocks.length) {
+    els.blocks.innerHTML = '<div class="empty">從左側選擇任意 Schema 頁面以新增第一個 Block。</div>';
+    return;
+  }
+
+  els.blocks.innerHTML = '';
+  state.blocks.forEach((block, index) => {
+    const card = document.createElement('article');
+    card.className = 'block';
+    card.draggable = true;
+    card.dataset.index = String(index);
+
+    card.innerHTML = `
+      <div class="block-header">
+        <div>
+          <div class="title">${escapeHtml(block.title)}</div>
+          <div class="meta">${escapeHtml(block.moduleName)} · ${escapeHtml(block.sourcePath || block.pageId)}</div>
+        </div>
+        <div class="controls">
+          <label class="toggle"><input type="checkbox" ${block.active ? 'checked' : ''} data-role="toggle">啟用</label>
+          <button class="delete" data-role="delete">刪除</button>
+        </div>
+      </div>
+      <div class="grid"></div>
+    `;
+
+    bindDragHandlers(card);
+    card.querySelector('[data-role="toggle"]').onchange = (e) => {
+      block.active = e.target.checked;
+      rerenderOutput();
+    };
+    card.querySelector('[data-role="delete"]').onclick = () => {
+      state.blocks.splice(index, 1);
+      renderWorkspace();
+      rerenderOutput();
+    };
+
+    const grid = card.querySelector('.grid');
+    Object.entries(block.fields).forEach(([fieldName, spec]) => {
+      grid.appendChild(renderField(block, fieldName, spec));
+    });
+
+    els.blocks.appendChild(card);
+  });
+}
+
+function bindDragHandlers(card) {
+  card.addEventListener('dragstart', (e) => {
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', card.dataset.index);
+  });
+  card.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    card.classList.add('drag-over');
+  });
+  card.addEventListener('dragleave', () => card.classList.remove('drag-over'));
+  card.addEventListener('drop', (e) => {
+    e.preventDefault();
+    card.classList.remove('drag-over');
+    const from = Number(e.dataTransfer.getData('text/plain'));
+    const to = Number(card.dataset.index);
+    if (Number.isNaN(from) || Number.isNaN(to) || from === to) return;
+    const [moved] = state.blocks.splice(from, 1);
+    state.blocks.splice(to, 0, moved);
+    renderWorkspace();
+    rerenderOutput();
+  });
+}
+
+function renderField(block, fieldName, spec) {
+  const wrap = document.createElement('div');
+  wrap.className = 'field';
+
+  const label = document.createElement('label');
+  label.textContent = fieldName + (spec.required ? ' *' : '');
+  wrap.appendChild(label);
+
+  const current = block.values[fieldName];
+  const type = spec?.type;
+  const allowed = Array.isArray(spec.allowedValues) ? spec.allowedValues : null;
+
+  let input;
+  if (allowed?.length) {
+    input = document.createElement('select');
+    for (const v of allowed) {
+      const opt = document.createElement('option');
+      opt.value = String(v);
+      opt.textContent = String(v);
+      if (String(current) === String(v)) opt.selected = true;
+      input.appendChild(opt);
+    }
+  } else if (type === 'boolean') {
+    input = document.createElement('input');
+    input.type = 'checkbox';
+    input.checked = Boolean(current);
+  } else if (type === 'array_integer' || type === 'array_object') {
+    input = document.createElement('textarea');
+    input.placeholder = '每行一個值（Tag Input）';
+    input.value = Array.isArray(current) ? current.join('\n') : '';
+  } else if (type === 'object') {
+    input = document.createElement('textarea');
+    input.placeholder = '{"key":"value"}';
+    input.value = safeStringify(current);
+  } else {
+    input = document.createElement('input');
+    input.type = type === 'integer' ? 'number' : 'text';
+    input.value = current ?? '';
+  }
+
+  input.oninput = () => {
+    block.values[fieldName] = readInputValue(input, type);
+    rerenderOutput();
+  };
+
+  wrap.appendChild(input);
+
+  if (spec.description) {
+    const hint = document.createElement('div');
+    hint.className = 'hint';
+    hint.textContent = spec.description;
+    wrap.appendChild(hint);
+  }
+
+  const fieldErrors = validateField(block.values[fieldName], spec);
+  if (fieldErrors.length) {
+    const err = document.createElement('div');
+    err.className = 'field-error';
+    err.textContent = fieldErrors.join('；');
+    wrap.appendChild(err);
+  }
+
+  return wrap;
+}
+
+function readInputValue(input, type) {
+  if (type === 'boolean') return input.checked;
+  if (type === 'integer') return Number(input.value || 0);
+  if (type === 'array_integer') {
+    return input.value.split('\n').map(v => v.trim()).filter(Boolean).map(v => Number(v));
+  }
+  if (type === 'array_object') {
+    return input.value.split('\n').map(v => v.trim()).filter(Boolean);
+  }
+  if (type === 'object') {
+    try {
+      return input.value.trim() ? JSON.parse(input.value) : {};
+    } catch {
+      return { __parse_error: true, raw: input.value };
+    }
+  }
+  return input.value;
+}
+
+function validateField(value, spec) {
+  const errs = [];
+  if (spec.required && (value === '' || value === null || value === undefined)) {
+    errs.push('必填欄位不可為空');
+  }
+  if (value && typeof value === 'object' && value.__parse_error) errs.push('Object JSON 格式錯誤');
+  if (spec.type === 'integer' && typeof value !== 'number') errs.push('需為數字');
+  if (spec.type === 'array_integer' && !Array.isArray(value)) errs.push('需為數組');
+  return errs;
+}
+
+function buildMergedConfig() {
+  const result = {
+    inbounds: [],
+    outbounds: [],
+    route: [],
+    dns: [],
+    endpoints: [],
+    services: []
+  };
+  const errors = [...state.errors];
+
+  for (const block of state.blocks) {
+    if (!block.active) continue;
+    const payload = {};
+
+    for (const [name, spec] of Object.entries(block.fields)) {
+      const value = block.values[name];
+      const fieldErrors = validateField(value, spec);
+      if (fieldErrors.length) {
+        errors.push(`${block.title}.${name}: ${fieldErrors.join(', ')}`);
+        continue;
+      }
+      if (value === '' || value === null || value === undefined) continue;
+      payload[name] = value;
+    }
+
+    payload.__page_id = block.pageId;
+
+    const bucket = ARRAY_BUCKETS[block.moduleName];
+    if (bucket) {
+      result[bucket].push(payload);
+    } else {
+      if (!result[block.moduleName]) result[block.moduleName] = [];
+      result[block.moduleName].push(payload);
+    }
+  }
+
+  for (const key of Object.keys(result)) {
+    if (Array.isArray(result[key]) && result[key].length === 0) delete result[key];
+  }
+
+  return { result, errors };
+}
+
+function rerenderOutput() {
+  const { result, errors } = buildMergedConfig();
+  els.preview.innerHTML = highlightJson(safeStringify(result, 2));
+  els.errors.hidden = errors.length === 0;
+  els.errors.textContent = errors.length ? errors.join('\n') : '';
+
+  // Refresh field-level errors.
+  renderWorkspace();
+}
+
+function bindGlobalActions() {
+  els.reset.onclick = () => {
+    state.blocks = [];
+    state.errors = [];
+    renderWorkspace();
+    rerenderOutput();
+  };
+
+  els.copy.onclick = async () => {
+    const { result } = buildMergedConfig();
+    await navigator.clipboard.writeText(safeStringify(result, 2));
+    els.copy.textContent = '已複製';
+    setTimeout(() => (els.copy.textContent = '複製 JSON'), 1200);
+  };
+
+  els.download.onclick = () => {
+    const { result } = buildMergedConfig();
+    const blob = new Blob([safeStringify(result, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'config.json';
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+}
+
+function safeStringify(value, spaces = 0) {
+  try {
+    return JSON.stringify(value, null, spaces);
+  } catch {
+    return '{}';
+  }
+}
+
+function escapeHtml(s) {
+  return String(s)
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;');
+}
+
+function highlightJson(json) {
+  return escapeHtml(json)
+    .replace(/"(\\u[0-9a-fA-F]{4}|\\[^u]|[^\\"])*"(?=\s*:)/g, '<span class="tok-key">$&</span>')
+    .replace(/"(\\u[0-9a-fA-F]{4}|\\[^u]|[^\\"])*"/g, '<span class="tok-str">$&</span>')
+    .replace(/\b(true|false)\b/g, '<span class="tok-bool">$1</span>')
+    .replace(/\bnull\b/g, '<span class="tok-null">null</span>')
+    .replace(/\b-?\d+(?:\.\d+)?(?:[eE][+\-]?\d+)?\b/g, '<span class="tok-num">$&</span>');
+}
+</script>
+</body>
+</html>
