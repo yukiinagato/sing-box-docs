@@ -1,0 +1,216 @@
+{
+  "module": "endpoint",
+  "source": "configuration/endpoint",
+  "page_count": 3,
+  "pages": [
+    {
+      "page_id": "endpoint",
+      "source_path": "configuration/endpoint/index.html",
+      "title": "Endpoint",
+      "fields": {
+        "tag": {
+          "type": "string",
+          "required": false,
+          "description": "The tag of the endpoint."
+        }
+      },
+      "section_titles": [
+        "Structure",
+        "Fields"
+      ]
+    },
+    {
+      "page_id": "tailscale",
+      "source_path": "configuration/endpoint/tailscale/index.html",
+      "title": "Tailscale",
+      "fields": {
+        "state_directory": {
+          "type": "string",
+          "required": false,
+          "description": "The directory where the Tailscale state is stored."
+        },
+        "auth_key": {
+          "type": "string",
+          "required": false,
+          "description": "Note Auth key is not required."
+        },
+        "control_url": {
+          "type": "string",
+          "required": false,
+          "description": "The coordination server URL."
+        },
+        "ephemeral": {
+          "type": "string",
+          "required": false,
+          "description": "Indicates whether the instance should register as an Ephemeral node (https://tailscale.com/s/ephemeral-nodes)."
+        },
+        "hostname": {
+          "type": "string",
+          "required": false,
+          "description": "The hostname of the node."
+        },
+        "accept_routes": {
+          "type": "string",
+          "required": false,
+          "description": "Indicates whether the node should accept routes advertised by other nodes."
+        },
+        "exit_node": {
+          "type": "string",
+          "required": false,
+          "description": "The exit node name or IP address to use."
+        },
+        "exit_node_allow_lan_access": {
+          "type": "boolean",
+          "required": false,
+          "description": "Note When the exit node does not have a corresponding advertised route, private traffics cannot be routed to the exit node even if exit_node_allow_lan_access is set."
+        },
+        "advertise_routes": {
+          "type": "string",
+          "required": false,
+          "description": "CIDR prefixes to advertise into the Tailscale network as reachable through the current node."
+        },
+        "advertise_exit_node": {
+          "type": "string",
+          "required": false,
+          "description": "Indicates whether the node should advertise itself as an exit node."
+        },
+        "advertise_tags": {
+          "type": "string",
+          "required": false,
+          "since": "1.13.0",
+          "description": "Example: [\"tag:server\"]"
+        },
+        "relay_server_port": {
+          "type": "integer",
+          "required": false,
+          "since": "1.13.0"
+        },
+        "relay_server_static_endpoints": {
+          "type": "string",
+          "required": false,
+          "since": "1.13.0"
+        },
+        "system_interface": {
+          "type": "string",
+          "required": false,
+          "since": "1.13.0"
+        },
+        "system_interface_name": {
+          "type": "string",
+          "required": false,
+          "since": "1.13.0",
+          "description": "By default, tailscale (or utun on macOS) will be used."
+        },
+        "system_interface_mtu": {
+          "type": "integer",
+          "required": false,
+          "since": "1.13.0",
+          "description": "By default, Tailscale's own MTU is used."
+        },
+        "udp_timeout": {
+          "type": "integer",
+          "required": false,
+          "description": "UDP NAT expiration time."
+        }
+      },
+      "section_titles": [
+        "Structure",
+        "Fields",
+        "Dial Fields"
+      ]
+    },
+    {
+      "page_id": "wireguard",
+      "source_path": "configuration/endpoint/wireguard/index.html",
+      "title": "WireGuard",
+      "fields": {
+        "system": {
+          "type": "string",
+          "required": false,
+          "dependencies": [
+            {
+              "type": "conflicts_with",
+              "field": "exists system interfaces"
+            }
+          ],
+          "description": "Use system interface."
+        },
+        "name": {
+          "type": "string",
+          "required": false,
+          "description": "Custom interface name for system interface."
+        },
+        "mtu": {
+          "type": "integer",
+          "required": false,
+          "description": "WireGuard MTU."
+        },
+        "address": {
+          "type": "array_object",
+          "required": true,
+          "description": "Required List of IP (v4 or v6) address prefixes to be assigned to the interface."
+        },
+        "private_key": {
+          "type": "string",
+          "required": true,
+          "description": "Required WireGuard requires base64-encoded public and private keys."
+        },
+        "peers": {
+          "type": "array_object",
+          "required": true,
+          "description": "Required List of WireGuard peers."
+        },
+        "peers.address": {
+          "type": "string",
+          "required": false,
+          "description": "WireGuard peer address."
+        },
+        "peers.port": {
+          "type": "integer",
+          "required": false,
+          "description": "WireGuard peer port."
+        },
+        "peers.public_key": {
+          "type": "string",
+          "required": true,
+          "description": "Required WireGuard peer public key."
+        },
+        "peers.pre_shared_key": {
+          "type": "string",
+          "required": false,
+          "description": "WireGuard peer pre-shared key."
+        },
+        "peers.allowed_ips": {
+          "type": "boolean",
+          "required": true,
+          "description": "Required WireGuard allowed IPs."
+        },
+        "peers.persistent_keepalive_interval": {
+          "type": "integer",
+          "required": false,
+          "description": "WireGuard persistent keepalive interval, in seconds."
+        },
+        "peers.reserved": {
+          "type": "string",
+          "required": false,
+          "description": "WireGuard reserved field bytes."
+        },
+        "udp_timeout": {
+          "type": "integer",
+          "required": false,
+          "description": "UDP NAT expiration time."
+        },
+        "workers": {
+          "type": "string",
+          "required": false,
+          "description": "WireGuard worker count."
+        }
+      },
+      "section_titles": [
+        "Structure",
+        "Fields",
+        "Dial Fields"
+      ]
+    }
+  ]
+}

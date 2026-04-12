@@ -1,0 +1,1029 @@
+{
+  "module": "shared",
+  "source": "configuration/shared",
+  "page_count": 15,
+  "pages": [
+    {
+      "page_id": "acme",
+      "source_path": "configuration/shared/certificate-provider/acme/index.html",
+      "title": "ACME",
+      "fields": {
+        "domain": {
+          "type": "array_object",
+          "required": true,
+          "description": "Required List of domains."
+        },
+        "data_directory": {
+          "type": "string",
+          "required": false,
+          "description": "The directory to store ACME data."
+        },
+        "default_server_name": {
+          "type": "string",
+          "required": false,
+          "description": "Server name to use when choosing a certificate if the ClientHello's ServerName field is empty."
+        },
+        "email": {
+          "type": "string",
+          "required": false,
+          "description": "The email address to use when creating or selecting an existing ACME server account."
+        },
+        "provider": {
+          "type": "integer",
+          "required": false,
+          "description": "The ACME CA provider to use."
+        },
+        "account_key": {
+          "type": "string",
+          "required": false,
+          "since": "1.14.0"
+        },
+        "disable_http_challenge": {
+          "type": "boolean",
+          "required": false,
+          "description": "Disable all HTTP challenges."
+        },
+        "disable_tls_alpn_challenge": {
+          "type": "boolean",
+          "required": false,
+          "description": "Disable all TLS-ALPN challenges"
+        },
+        "alternative_http_port": {
+          "type": "integer",
+          "required": false,
+          "description": "The alternate port to use for the ACME HTTP challenge; if non-empty, this port will be used instead of 80 to spin up a listener for the HTTP challenge."
+        },
+        "alternative_tls_port": {
+          "type": "boolean",
+          "required": false,
+          "description": "The alternate port to use for the ACME TLS-ALPN challenge; the system must forward 443 to this port for challenge to succeed."
+        },
+        "external_account": {
+          "type": "string",
+          "required": false,
+          "description": "EAB (External Account Binding) contains information necessary to bind or map an ACME account to some other account known by the CA."
+        },
+        "external_account.key_id": {
+          "type": "integer",
+          "required": false,
+          "description": "The key identifier."
+        },
+        "external_account.mac_key": {
+          "type": "string",
+          "required": false,
+          "description": "The MAC key."
+        },
+        "dns01_challenge": {
+          "type": "string",
+          "required": false,
+          "description": "ACME DNS01 challenge field."
+        },
+        "key_type": {
+          "type": "string",
+          "required": false,
+          "since": "1.14.0",
+          "description": "Value Type ed25519 Ed25519 p256 P-256 p384 P-384 rsa2048 RSA rsa4096 RSA"
+        },
+        "detour": {
+          "type": "string",
+          "required": false,
+          "since": "1.14.0",
+          "description": "All provider HTTP requests will use this outbound."
+        }
+      },
+      "section_titles": [
+        "Structure",
+        "Fields"
+      ]
+    },
+    {
+      "page_id": "cloudflare-origin-ca",
+      "source_path": "configuration/shared/certificate-provider/cloudflare-origin-ca/index.html",
+      "title": "Cloudflare Origin CA",
+      "fields": {
+        "domain": {
+          "type": "array_object",
+          "required": true,
+          "description": "Required List of domain names or wildcard domain names to include in the certificate."
+        },
+        "data_directory": {
+          "type": "string",
+          "required": false,
+          "description": "Root directory used to store the issued certificate, private key, and metadata."
+        },
+        "api_token": {
+          "type": "string",
+          "required": false,
+          "dependencies": [
+            {
+              "type": "conflicts_with",
+              "field": "origin_ca_key"
+            }
+          ],
+          "description": "Cloudflare API token used to create the certificate."
+        },
+        "origin_ca_key": {
+          "type": "string",
+          "required": false,
+          "dependencies": [
+            {
+              "type": "conflicts_with",
+              "field": "api_token"
+            }
+          ],
+          "description": "Cloudflare Origin CA Key."
+        },
+        "request_type": {
+          "type": "string",
+          "required": false,
+          "description": "The signature type to request from Cloudflare."
+        },
+        "requested_validity": {
+          "type": "integer",
+          "required": false,
+          "description": "The requested certificate validity in days."
+        },
+        "detour": {
+          "type": "string",
+          "required": false,
+          "description": "The tag of the upstream outbound."
+        }
+      },
+      "section_titles": [
+        "Structure",
+        "Fields"
+      ]
+    },
+    {
+      "page_id": "certificate-provider",
+      "source_path": "configuration/shared/certificate-provider/index.html",
+      "title": "Certificate Provider",
+      "fields": {
+        "tag": {
+          "type": "string",
+          "required": false,
+          "description": "The tag of the certificate provider."
+        }
+      },
+      "section_titles": [
+        "Structure",
+        "Fields"
+      ]
+    },
+    {
+      "page_id": "tailscale",
+      "source_path": "configuration/shared/certificate-provider/tailscale/index.html",
+      "title": "Tailscale",
+      "fields": {
+        "endpoint": {
+          "type": "string",
+          "required": true,
+          "description": "Required The tag of the Tailscale endpoint to reuse."
+        }
+      },
+      "section_titles": [
+        "Structure",
+        "Fields"
+      ]
+    },
+    {
+      "page_id": "dial",
+      "source_path": "configuration/shared/dial/index.html",
+      "title": "Dial Fields",
+      "fields": {
+        "detour": {
+          "type": "string",
+          "required": false,
+          "description": "The tag of the upstream outbound."
+        },
+        "bind_interface": {
+          "type": "string",
+          "required": false,
+          "description": "The network interface to bind to."
+        },
+        "inet4_bind_address": {
+          "type": "string",
+          "required": false,
+          "description": "The IPv4 address to bind to."
+        },
+        "inet6_bind_address": {
+          "type": "string",
+          "required": false,
+          "description": "The IPv6 address to bind to."
+        },
+        "bind_address_no_port": {
+          "type": "integer",
+          "required": false,
+          "since": "1.13.0",
+          "description": "Do not reserve a port when binding to a source address."
+        },
+        "routing_mark": {
+          "type": "integer",
+          "required": false,
+          "description": "Only supported on Linux."
+        },
+        "reuse_addr": {
+          "type": "array_object",
+          "required": false,
+          "description": "Reuse listener address."
+        },
+        "netns": {
+          "type": "string",
+          "required": false,
+          "since": "1.12.0",
+          "description": "Set network namespace, name or path."
+        },
+        "connect_timeout": {
+          "type": "integer",
+          "required": false,
+          "description": "Connect timeout, in golang's Duration format."
+        },
+        "tcp_fast_open": {
+          "type": "string",
+          "required": false,
+          "description": "Enable TCP Fast Open."
+        },
+        "tcp_multi_path": {
+          "type": "string",
+          "required": false,
+          "description": "Go 1.21 required."
+        },
+        "disable_tcp_keep_alive": {
+          "type": "boolean",
+          "required": false,
+          "since": "1.13.0"
+        },
+        "tcp_keep_alive": {
+          "type": "string",
+          "required": false,
+          "since": "1.13.0",
+          "description": "TCP keep alive initial period."
+        },
+        "tcp_keep_alive_interval": {
+          "type": "integer",
+          "required": false,
+          "since": "1.13.0",
+          "description": "75s will be used by default."
+        },
+        "udp_fragment": {
+          "type": "boolean",
+          "required": false,
+          "description": "Enable UDP fragmentation."
+        },
+        "domain_resolver": {
+          "type": "object",
+          "required": false,
+          "description": "outbound DNS rule items are deprecated and will be removed in sing-box 1.14.0, so this item will be required for outbound/endpoints using domain name in server address since sing-box 1.14.0."
+        },
+        "network_strategy": {
+          "type": "string",
+          "required": false,
+          "allowedValues": [
+            "default (default): Connect to default network or networks specified in network_type sequentially.",
+            "hybrid: Connect to all networks or networks specified in network_type concurrently.",
+            "fallback: Connect to default network or preferred networks specified in network_type concurrently, and try fallback networks when unavailable or timeout."
+          ],
+          "since": "1.11.0",
+          "description": "Strategy for selecting network interfaces."
+        },
+        "network_type": {
+          "type": "string",
+          "required": false,
+          "since": "1.11.0",
+          "description": "Network types to use when using default or hybrid network strategy or preferred network types to use when using fallback network strategy."
+        },
+        "fallback_network_type": {
+          "type": "string",
+          "required": false,
+          "since": "1.11.0",
+          "description": "Fallback network types when preferred networks are unavailable or timeout when using fallback network strategy."
+        },
+        "fallback_delay": {
+          "type": "string",
+          "required": false,
+          "since": "1.11.0",
+          "description": "The length of time to wait before spawning a RFC 6555 Fast Fallback connection."
+        },
+        "domain_strategy": {
+          "type": "string",
+          "required": false,
+          "deprecated": true,
+          "description": "Deprecated in sing-box 1.12.0 domain_strategy is deprecated and will be removed in sing-box 1.14.0, check Migration."
+        }
+      },
+      "section_titles": [
+        "Structure",
+        "Fields"
+      ]
+    },
+    {
+      "page_id": "dns01_challenge",
+      "source_path": "configuration/shared/dns01_challenge/index.html",
+      "title": "DNS01 Challenge Fields",
+      "fields": {
+        "ttl": {
+          "type": "integer",
+          "required": false,
+          "since": "1.14.0"
+        },
+        "propagation_delay": {
+          "type": "string",
+          "required": false,
+          "since": "1.14.0"
+        },
+        "propagation_timeout": {
+          "type": "integer",
+          "required": false,
+          "since": "1.14.0",
+          "description": "Set to -1 to disable propagation checks."
+        },
+        "resolvers": {
+          "type": "string",
+          "required": false,
+          "since": "1.14.0"
+        },
+        "override_domain": {
+          "type": "integer",
+          "required": false,
+          "since": "1.14.0",
+          "description": "Useful when _acme-challenge is delegated to a different zone."
+        },
+        "provider": {
+          "type": "integer",
+          "required": false,
+          "description": "The DNS provider."
+        },
+        "Alibaba Cloud DNS": {
+          "type": "string",
+          "required": false,
+          "since": "1.13.0",
+          "description": "{ \"provider\": \"alidns\", \"access_key_id\": \"\", \"access_key_secret\": \"\", \"region_id\": \"\", \"security_token\": \"\" } security_token Since sing-box 1.13.0 The Security Token for STS temporary credentials."
+        },
+        "Cloudflare": {
+          "type": "string",
+          "required": false,
+          "since": "1.13.0",
+          "description": "{ \"provider\": \"cloudflare\", \"api_token\": \"\", \"zone_token\": \"\" } zone_token Since sing-box 1.13.0 Optional API token with Zone:Read permission."
+        },
+        "ACME-DNS": {
+          "type": "string",
+          "required": false,
+          "since": "1.13.0"
+        }
+      },
+      "section_titles": [
+        "Structure",
+        "Fields",
+        "Provider Fields"
+      ]
+    },
+    {
+      "page_id": "listen",
+      "source_path": "configuration/shared/listen/index.html",
+      "title": "Listen Fields",
+      "fields": {
+        "listen": {
+          "type": "array_object",
+          "required": true,
+          "description": "Required Listen address."
+        },
+        "listen_port": {
+          "type": "integer",
+          "required": false,
+          "description": "Listen port."
+        },
+        "bind_interface": {
+          "type": "string",
+          "required": false,
+          "since": "1.12.0"
+        },
+        "routing_mark": {
+          "type": "integer",
+          "required": false,
+          "since": "1.12.0",
+          "description": "Set netfilter routing mark."
+        },
+        "reuse_addr": {
+          "type": "array_object",
+          "required": false,
+          "since": "1.12.0"
+        },
+        "netns": {
+          "type": "string",
+          "required": false,
+          "since": "1.12.0",
+          "description": "Set network namespace, name or path."
+        },
+        "tcp_fast_open": {
+          "type": "string",
+          "required": false,
+          "description": "Enable TCP Fast Open."
+        },
+        "tcp_multi_path": {
+          "type": "string",
+          "required": false,
+          "description": "Go 1.21 required."
+        },
+        "disable_tcp_keep_alive": {
+          "type": "boolean",
+          "required": false,
+          "since": "1.13.0"
+        },
+        "tcp_keep_alive": {
+          "type": "string",
+          "required": false,
+          "since": "1.13.0",
+          "description": "TCP keep alive initial period."
+        },
+        "tcp_keep_alive_interval": {
+          "type": "integer",
+          "required": false,
+          "description": "TCP keep alive interval."
+        },
+        "udp_fragment": {
+          "type": "boolean",
+          "required": false,
+          "description": "Enable UDP fragmentation."
+        },
+        "udp_timeout": {
+          "type": "integer",
+          "required": false,
+          "description": "UDP NAT expiration time."
+        },
+        "detour": {
+          "type": "string",
+          "required": false,
+          "description": "If set, connections will be forwarded to the specified inbound."
+        },
+        "sniff": {
+          "type": "boolean",
+          "required": false,
+          "deprecated": true,
+          "description": "Deprecated in sing-box 1.11.0 Inbound fields are deprecated and will be removed in sing-box 1.13.0, check Migration."
+        },
+        "sniff_override_destination": {
+          "type": "boolean",
+          "required": false,
+          "deprecated": true,
+          "description": "Deprecated in sing-box 1.11.0 Inbound fields are deprecated and will be removed in sing-box 1.13.0."
+        },
+        "sniff_timeout": {
+          "type": "boolean",
+          "required": false,
+          "deprecated": true,
+          "description": "Deprecated in sing-box 1.11.0 Inbound fields are deprecated and will be removed in sing-box 1.13.0, check Migration."
+        },
+        "domain_strategy": {
+          "type": "string",
+          "required": false,
+          "deprecated": true,
+          "description": "Deprecated in sing-box 1.11.0 Inbound fields are deprecated and will be removed in sing-box 1.13.0, check Migration."
+        },
+        "udp_disable_domain_unmapping": {
+          "type": "boolean",
+          "required": false,
+          "deprecated": true,
+          "description": "Deprecated in sing-box 1.11.0 Inbound fields are deprecated and will be removed in sing-box 1.13.0, check Migration."
+        }
+      },
+      "section_titles": [
+        "Structure",
+        "Fields"
+      ]
+    },
+    {
+      "page_id": "multiplex",
+      "source_path": "configuration/shared/multiplex/index.html",
+      "title": "Multiplex",
+      "fields": {
+        "enabled": {
+          "type": "boolean",
+          "required": false,
+          "description": "Enable multiplex."
+        },
+        "padding": {
+          "type": "string",
+          "required": false,
+          "description": "Info Requires sing-box server version 1.3-beta9 or later."
+        },
+        "brutal": {
+          "type": "string",
+          "required": false,
+          "description": "See TCP Brutal for details."
+        },
+        "protocol": {
+          "type": "string",
+          "required": false,
+          "description": "Multiplex protocol."
+        },
+        "max_connections": {
+          "type": "string",
+          "required": false,
+          "dependencies": [
+            {
+              "type": "conflicts_with",
+              "field": "max_streams"
+            }
+          ],
+          "description": "Maximum connections."
+        },
+        "min_streams": {
+          "type": "string",
+          "required": false,
+          "dependencies": [
+            {
+              "type": "conflicts_with",
+              "field": "max_streams"
+            }
+          ],
+          "description": "Minimum multiplexed streams in a connection before opening a new connection."
+        },
+        "max_streams": {
+          "type": "string",
+          "required": false,
+          "dependencies": [
+            {
+              "type": "conflicts_with",
+              "field": "max_connections"
+            },
+            {
+              "type": "conflicts_with",
+              "field": "min_streams"
+            }
+          ],
+          "description": "Maximum multiplexed streams in a connection before opening a new connection."
+        }
+      },
+      "section_titles": [
+        "Inbound",
+        "Outbound",
+        "Inbound Fields",
+        "Outbound Fields"
+      ]
+    },
+    {
+      "page_id": "neighbor",
+      "source_path": "configuration/shared/neighbor/index.html",
+      "title": "Neighbor Resolution",
+      "fields": {},
+      "section_titles": [
+        "Hostname Visibility"
+      ]
+    },
+    {
+      "page_id": "pre-match",
+      "source_path": "configuration/shared/pre-match/index.html",
+      "title": "Pre-match",
+      "fields": {
+        "reject": {
+          "type": "boolean",
+          "required": false,
+          "description": "Reject with TCP RST / ICMP unreachable."
+        },
+        "route": {
+          "type": "string",
+          "required": false,
+          "description": "Route ICMP connections to the specified outbound for direct reply."
+        },
+        "bypass": {
+          "type": "string",
+          "required": false,
+          "since": "1.13.0",
+          "description": "Bypass sing-box and connect directly at kernel level."
+        }
+      },
+      "section_titles": [
+        "How it works",
+        "Supported actions"
+      ]
+    },
+    {
+      "page_id": "tcp-brutal",
+      "source_path": "configuration/shared/tcp-brutal/index.html",
+      "title": "TCP Brutal",
+      "fields": {
+        "enabled": {
+          "type": "boolean",
+          "required": false,
+          "description": "Enable TCP Brutal congestion control algorithm。"
+        },
+        "up_mbps, down_mbps": {
+          "type": "string",
+          "required": true,
+          "description": "Required Upload and download bandwidth, in Mbps."
+        }
+      },
+      "section_titles": [
+        "Server Requirements",
+        "Structure",
+        "Fields"
+      ]
+    },
+    {
+      "page_id": "tls",
+      "source_path": "configuration/shared/tls/index.html",
+      "title": "TLS",
+      "fields": {
+        "enabled": {
+          "type": "boolean",
+          "required": false,
+          "description": "Enable TLS."
+        },
+        "disable_sni": {
+          "type": "boolean",
+          "required": false,
+          "description": "Client only Do not send server name in ClientHello."
+        },
+        "server_name": {
+          "type": "string",
+          "required": false,
+          "description": "Used to verify the hostname on the returned certificates unless insecure is given."
+        },
+        "insecure": {
+          "type": "boolean",
+          "required": false,
+          "description": "Client only Accepts any server certificate."
+        },
+        "alpn": {
+          "type": "array_object",
+          "required": false,
+          "description": "List of supported application level protocols, in order of preference."
+        },
+        "min_version": {
+          "type": "string",
+          "required": false,
+          "description": "The minimum TLS version that is acceptable."
+        },
+        "max_version": {
+          "type": "string",
+          "required": false,
+          "description": "The maximum TLS version that is acceptable."
+        },
+        "cipher_suites": {
+          "type": "array_object",
+          "required": false,
+          "description": "List of enabled TLS 1.0–1.2 cipher suites."
+        },
+        "curve_preferences": {
+          "type": "array_object",
+          "required": false,
+          "since": "1.13.0",
+          "description": "The order of the list is ignored, and key exchange mechanisms are chosen from this list using an internal preference order by Golang."
+        },
+        "certificate": {
+          "type": "array_object",
+          "required": false,
+          "description": "Server certificates chain line array, in PEM format."
+        },
+        "certificate_path": {
+          "type": "string",
+          "required": false,
+          "description": "Will be automatically reloaded if file modified."
+        },
+        "certificate_public_key_sha256": {
+          "type": "array_object",
+          "required": false,
+          "since": "1.13.0",
+          "description": "To generate the SHA-256 hash for a certificate's public key, use the following commands: # For a certificate file openssl x509 -in certificate.pem -pubkey -noout | openssl pkey -pubin -outform der | openssl dgst -sha256 -binary | openssl enc -base64 # For a certificate from a remote server echo | openssl s_client -servername example.com -connect example.com:443 2>/dev/null | openssl x509 -pubkey -noout | openssl pkey -pubin -outform der | openssl dgst -sha256 -binary | openssl enc -base64"
+        },
+        "client_certificate": {
+          "type": "array_object",
+          "required": false,
+          "since": "1.13.0"
+        },
+        "client_certificate_path": {
+          "type": "array_object",
+          "required": false,
+          "since": "1.13.0",
+          "description": "List of path to client certificate chain, in PEM format."
+        },
+        "client_key": {
+          "type": "array_object",
+          "required": false,
+          "since": "1.13.0"
+        },
+        "client_key_path": {
+          "type": "string",
+          "required": false,
+          "since": "1.13.0"
+        },
+        "key": {
+          "type": "array_object",
+          "required": false,
+          "description": "Server only ECH key line array, in PEM format."
+        },
+        "key_path": {
+          "type": "string",
+          "required": false,
+          "description": "Server only Will be automatically reloaded if file modified."
+        },
+        "client_authentication": {
+          "type": "string",
+          "required": false,
+          "allowedValues": [
+            "no (default)",
+            "request",
+            "require-any",
+            "verify-if-given",
+            "require-and-verify"
+          ],
+          "dependencies": [
+            {
+              "type": "required_if",
+              "expression": "this option is set to verify-if-given, or require-and-verify"
+            }
+          ],
+          "since": "1.13.0"
+        },
+        "client_certificate_public_key_sha256": {
+          "type": "array_object",
+          "required": false,
+          "since": "1.13.0",
+          "description": "To generate the SHA-256 hash for a certificate's public key, use the following commands: # For a certificate file openssl x509 -in certificate.pem -pubkey -noout | openssl pkey -pubin -outform der | openssl dgst -sha256 -binary | openssl enc -base64 # For a certificate from a remote server echo | openssl s_client -servername example.com -connect example.com:443 2>/dev/null | openssl x509 -pubkey -noout | openssl pkey -pubin -outform der | openssl dgst -sha256 -binary | openssl enc -base64"
+        },
+        "kernel_tx": {
+          "type": "string",
+          "required": false,
+          "since": "1.13.0",
+          "description": "Only TLS 1.3 is supported."
+        },
+        "kernel_rx": {
+          "type": "string",
+          "required": false,
+          "since": "1.13.0",
+          "description": "Only TLS 1.3 is supported."
+        },
+        "certificate_provider": {
+          "type": "integer",
+          "required": false,
+          "since": "1.14.0",
+          "description": "When string, the tag of a shared Certificate Provider."
+        },
+        "utls": {
+          "type": "boolean",
+          "required": false,
+          "description": "Client only Not Recommended uTLS has had repeated fingerprinting vulnerabilities discovered by researchers."
+        },
+        "pq_signature_schemes_enabled": {
+          "type": "boolean",
+          "required": false,
+          "deprecated": true,
+          "description": "Deprecated in sing-box 1.12.0 pq_signature_schemes_enabled is deprecated in sing-box 1.12.0 and removed in sing-box 1.13.0."
+        },
+        "dynamic_record_sizing_disabled": {
+          "type": "boolean",
+          "required": false,
+          "deprecated": true,
+          "description": "Deprecated in sing-box 1.12.0 dynamic_record_sizing_disabled is deprecated in sing-box 1.12.0 and removed in sing-box 1.13.0."
+        },
+        "config": {
+          "type": "array_object",
+          "required": false,
+          "description": "Client only ECH configuration line array, in PEM format."
+        },
+        "config_path": {
+          "type": "object",
+          "required": false,
+          "description": "Client only The path to ECH configuration, in PEM format."
+        },
+        "query_server_name": {
+          "type": "string",
+          "required": false,
+          "since": "1.13.0",
+          "description": "If empty, server_name is used for queries."
+        },
+        "fragment": {
+          "type": "boolean",
+          "required": false,
+          "since": "1.12.0",
+          "description": "This feature is intended to circumvent simple firewalls based on plaintext packet matching, and should not be used to circumvent real censorship."
+        },
+        "fragment_fallback_delay": {
+          "type": "boolean",
+          "required": false,
+          "since": "1.12.0",
+          "description": "500ms is used by default."
+        },
+        "record_fragment": {
+          "type": "boolean",
+          "required": false,
+          "since": "1.12.0",
+          "deprecated": true,
+          "description": "ACME Fields Deprecated in sing-box 1.14.0 Inline ACME options are deprecated in sing-box 1.14.0 and will be removed in sing-box 1.16.0, check Migration."
+        },
+        "domain": {
+          "type": "array_object",
+          "required": false,
+          "description": "List of domain."
+        },
+        "data_directory": {
+          "type": "string",
+          "required": false,
+          "description": "The directory to store ACME data."
+        },
+        "default_server_name": {
+          "type": "string",
+          "required": false,
+          "description": "Server name to use when choosing a certificate if the ClientHello's ServerName field is empty."
+        },
+        "email": {
+          "type": "string",
+          "required": false,
+          "description": "The email address to use when creating or selecting an existing ACME server account"
+        },
+        "provider": {
+          "type": "integer",
+          "required": false,
+          "description": "The ACME CA provider to use."
+        },
+        "disable_http_challenge": {
+          "type": "boolean",
+          "required": false,
+          "description": "Disable all HTTP challenges."
+        },
+        "disable_tls_alpn_challenge": {
+          "type": "boolean",
+          "required": false,
+          "description": "Disable all TLS-ALPN challenges"
+        },
+        "alternative_http_port": {
+          "type": "integer",
+          "required": false,
+          "description": "The alternate port to use for the ACME HTTP challenge; if non-empty, this port will be used instead of 80 to spin up a listener for the HTTP challenge."
+        },
+        "alternative_tls_port": {
+          "type": "boolean",
+          "required": false,
+          "description": "The alternate port to use for the ACME TLS-ALPN challenge; the system must forward 443 to this port for challenge to succeed."
+        },
+        "external_account": {
+          "type": "string",
+          "required": false,
+          "description": "EAB (External Account Binding) contains information necessary to bind or map an ACME account to some other account known by the CA."
+        },
+        "external_account.key_id": {
+          "type": "integer",
+          "required": false,
+          "description": "The key identifier."
+        },
+        "external_account.mac_key": {
+          "type": "string",
+          "required": false,
+          "description": "The MAC key."
+        },
+        "dns01_challenge": {
+          "type": "string",
+          "required": false,
+          "description": "ACME DNS01 challenge field."
+        },
+        "handshake": {
+          "type": "string",
+          "required": true,
+          "description": "Server only Required Handshake server address and Dial Fields."
+        },
+        "private_key": {
+          "type": "string",
+          "required": true,
+          "description": "Server only Required Private key, generated by sing-box generate reality-keypair."
+        },
+        "public_key": {
+          "type": "string",
+          "required": true,
+          "description": "Client only Required Public key, generated by sing-box generate reality-keypair."
+        },
+        "short_id": {
+          "type": "integer",
+          "required": true,
+          "description": "Required A hexadecimal string with zero to eight digits."
+        },
+        "max_time_difference": {
+          "type": "string",
+          "required": false,
+          "description": "Server only The maximum time difference between the server and the client."
+        }
+      },
+      "section_titles": [
+        "Inbound",
+        "Outbound",
+        "Fields",
+        "ECH Fields",
+        "ACME Fields",
+        "Reality Fields"
+      ]
+    },
+    {
+      "page_id": "udp-over-tcp",
+      "source_path": "configuration/shared/udp-over-tcp/index.html",
+      "title": "UDP over TCP",
+      "fields": {
+        "enabled": {
+          "type": "boolean",
+          "required": false,
+          "description": "Enable the UDP over TCP protocol."
+        },
+        "version": {
+          "type": "string",
+          "required": false,
+          "description": "The protocol version, 1 or 2."
+        },
+        "Protocol version 1": {
+          "type": "string",
+          "required": false,
+          "description": "The client requests the magic address to the upper layer proxy protocol to indicate the request: sp.udp-over-tcp.arpa"
+        },
+        "Stream format": {
+          "type": "string",
+          "required": false,
+          "description": "ATYP address port length data u8 variable u16be u16be variable ATYP / address / port: Uses the SOCKS address format, but with different address types: ATYP Address type 0x00 IPv4 Address 0x01 IPv6 Address 0x02 Domain Name"
+        },
+        "Protocol version 2": {
+          "type": "string",
+          "required": false,
+          "description": "Protocol version 2 uses a new magic address: sp.v2.udp-over-tcp.arpa Request format isConnect ATYP address port u8 u8 variable u16be isConnect: Set to 1 to indicates that the stream uses the connect format, 0 to disable."
+        }
+      },
+      "section_titles": [
+        "Structure",
+        "Fields",
+        "Application support",
+        "Protocol details"
+      ]
+    },
+    {
+      "page_id": "v2ray-transport",
+      "source_path": "configuration/shared/v2ray-transport/index.html",
+      "title": "V2Ray Transport",
+      "fields": {
+        "host": {
+          "type": "string",
+          "required": false,
+          "description": "Host domain."
+        },
+        "path": {
+          "type": "string",
+          "required": false,
+          "description": "Path of HTTP request."
+        },
+        "method": {
+          "type": "string",
+          "required": false,
+          "description": "Method of HTTP request."
+        },
+        "headers": {
+          "type": "string",
+          "required": false,
+          "description": "Extra headers of HTTP request."
+        },
+        "idle_timeout": {
+          "type": "integer",
+          "required": false,
+          "description": "In standard gRPC server/client: If the transport doesn't see any activity after a duration of this time, it pings the client to check if the connection is still active."
+        },
+        "ping_timeout": {
+          "type": "integer",
+          "required": false,
+          "description": "In standard gRPC server/client: The timeout that after performing a keepalive check, the client will wait for activity."
+        },
+        "max_early_data": {
+          "type": "string",
+          "required": false,
+          "description": "Allowed payload size is in the request."
+        },
+        "early_data_header_name": {
+          "type": "string",
+          "required": false,
+          "description": "Early data is sent in path instead of header by default."
+        },
+        "service_name": {
+          "type": "string",
+          "required": false,
+          "description": "Service name of gRPC."
+        },
+        "permit_without_stream": {
+          "type": "string",
+          "required": false,
+          "description": "In standard gRPC client: If enabled, the client transport sends keepalive pings even with no active connections."
+        }
+      },
+      "section_titles": [
+        "Structure",
+        "HTTP",
+        "WebSocket",
+        "QUIC",
+        "gRPC",
+        "HTTPUpgrade"
+      ]
+    },
+    {
+      "page_id": "wifi-state",
+      "source_path": "configuration/shared/wifi-state/index.html",
+      "title": "Wi-Fi State",
+      "fields": {},
+      "section_titles": [
+        "Platform Support",
+        "Linux",
+        "Windows"
+      ]
+    }
+  ]
+}

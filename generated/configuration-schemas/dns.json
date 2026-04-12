@@ -1,0 +1,893 @@
+{
+  "module": "dns",
+  "source": "configuration/dns",
+  "page_count": 18,
+  "pages": [
+    {
+      "page_id": "fakeip",
+      "source_path": "configuration/dns/fakeip/index.html",
+      "title": "FakeIP",
+      "fields": {
+        "enabled": {
+          "type": "boolean",
+          "required": false,
+          "description": "Enable FakeIP service."
+        },
+        "inet4_range": {
+          "type": "string",
+          "required": false,
+          "description": "IPv4 address range for FakeIP."
+        },
+        "inet6_range": {
+          "type": "string",
+          "required": false,
+          "description": "IPv6 address range for FakeIP."
+        }
+      },
+      "section_titles": [
+        "Structure",
+        "Fields"
+      ]
+    },
+    {
+      "page_id": "dns",
+      "source_path": "configuration/dns/index.html",
+      "title": "DNS",
+      "fields": {
+        "final": {
+          "type": "string",
+          "required": false,
+          "description": "The first server will be used if empty."
+        },
+        "strategy": {
+          "type": "string",
+          "required": false,
+          "description": "One of prefer_ipv4 prefer_ipv6 ipv4_only ipv6_only."
+        },
+        "disable_cache": {
+          "type": "boolean",
+          "required": false,
+          "dependencies": [
+            {
+              "type": "conflicts_with",
+              "field": "optimistic"
+            }
+          ],
+          "description": "Disable dns cache."
+        },
+        "disable_expire": {
+          "type": "boolean",
+          "required": false,
+          "dependencies": [
+            {
+              "type": "conflicts_with",
+              "field": "optimistic"
+            }
+          ],
+          "description": "Disable dns cache expire."
+        },
+        "independent_cache": {
+          "type": "string",
+          "required": false,
+          "deprecated": true,
+          "description": "Deprecated in sing-box 1.14.0 independent_cache is deprecated and will be removed in sing-box 1.14.0, check Migration."
+        },
+        "cache_capacity": {
+          "type": "string",
+          "required": false,
+          "since": "1.11.0",
+          "description": "Value less than 1024 will be ignored."
+        },
+        "optimistic": {
+          "type": "string",
+          "required": false,
+          "dependencies": [
+            {
+              "type": "conflicts_with",
+              "field": "disable_cache"
+            },
+            {
+              "type": "conflicts_with",
+              "field": "disable_expire"
+            }
+          ],
+          "since": "1.14.0",
+          "description": "When a cached DNS entry has expired but is still within the timeout window, the stale response is returned immediately while a background refresh is triggered."
+        },
+        "reverse_mapping": {
+          "type": "string",
+          "required": false,
+          "description": "Stores a reverse mapping of IP addresses after responding to a DNS query in order to provide domain names when routing."
+        },
+        "client_subnet": {
+          "type": "string",
+          "required": false,
+          "since": "1.9.0",
+          "description": "If value is an IP address instead of prefix, /32 or /128 will be appended automatically."
+        }
+      },
+      "section_titles": [
+        "Structure",
+        "Fields"
+      ]
+    },
+    {
+      "page_id": "rule",
+      "source_path": "configuration/dns/rule/index.html",
+      "title": "DNS Rule",
+      "fields": {
+        "inbound": {
+          "type": "string",
+          "required": false,
+          "description": "Tags of Inbound."
+        },
+        "ip_version": {
+          "type": "array_object",
+          "required": false,
+          "description": "Changes in sing-box 1.14.0 This field now also applies when a DNS rule is matched from an internal domain resolution that does not target a specific DNS server, such as a resolve route rule action without a server set."
+        },
+        "query_type": {
+          "type": "array_object",
+          "required": false,
+          "description": "Changes in sing-box 1.14.0 This field now also applies when a DNS rule is matched from an internal domain resolution that does not target a specific DNS server, such as a resolve route rule action without a server set."
+        },
+        "network": {
+          "type": "string",
+          "required": false,
+          "description": "tcp or udp."
+        },
+        "auth_user": {
+          "type": "string",
+          "required": false,
+          "description": "Username, see each inbound for details."
+        },
+        "protocol": {
+          "type": "string",
+          "required": false,
+          "description": "Sniffed protocol, see Sniff for details."
+        },
+        "domain": {
+          "type": "string",
+          "required": false,
+          "description": "Match full domain."
+        },
+        "domain_suffix": {
+          "type": "string",
+          "required": false,
+          "description": "Match domain suffix."
+        },
+        "domain_keyword": {
+          "type": "string",
+          "required": false,
+          "description": "Match domain using keyword."
+        },
+        "domain_regex": {
+          "type": "string",
+          "required": false,
+          "description": "Match domain using regular expression."
+        },
+        "geosite": {
+          "type": "string",
+          "required": false,
+          "deprecated": true,
+          "description": "Deprecated in sing-box 1.8.0 Geosite is deprecated and will be removed in sing-box 1.12.0, check Migration."
+        },
+        "source_geoip": {
+          "type": "string",
+          "required": false,
+          "deprecated": true,
+          "description": "Deprecated in sing-box 1.8.0 GeoIP is deprecated and will be removed in sing-box 1.12.0, check Migration."
+        },
+        "source_ip_cidr": {
+          "type": "integer",
+          "required": false,
+          "description": "Match source IP CIDR."
+        },
+        "source_ip_is_private": {
+          "type": "string",
+          "required": false,
+          "since": "1.8.0"
+        },
+        "source_port": {
+          "type": "integer",
+          "required": false,
+          "description": "Match source port."
+        },
+        "source_port_range": {
+          "type": "integer",
+          "required": false,
+          "description": "Match source port range."
+        },
+        "port": {
+          "type": "integer",
+          "required": false,
+          "description": "Match port."
+        },
+        "port_range": {
+          "type": "integer",
+          "required": false,
+          "description": "Match port range."
+        },
+        "process_name": {
+          "type": "string",
+          "required": false,
+          "description": "Only supported on Linux, Windows, and macOS."
+        },
+        "process_path": {
+          "type": "string",
+          "required": false,
+          "description": "Only supported on Linux, Windows, and macOS."
+        },
+        "process_path_regex": {
+          "type": "string",
+          "required": false,
+          "since": "1.10.0",
+          "description": "Match process path using regular expression."
+        },
+        "package_name": {
+          "type": "string",
+          "required": false,
+          "description": "Match android package name."
+        },
+        "package_name_regex": {
+          "type": "string",
+          "required": false,
+          "since": "1.14.0"
+        },
+        "user": {
+          "type": "string",
+          "required": false,
+          "description": "Only supported on Linux."
+        },
+        "user_id": {
+          "type": "integer",
+          "required": false,
+          "description": "Only supported on Linux."
+        },
+        "clash_mode": {
+          "type": "string",
+          "required": false,
+          "description": "Match Clash mode."
+        },
+        "network_type": {
+          "type": "string",
+          "required": false,
+          "since": "1.11.0",
+          "description": "Match network type."
+        },
+        "network_is_expensive": {
+          "type": "string",
+          "required": false,
+          "since": "1.11.0",
+          "description": "Match if network is considered Metered (on Android) or considered expensive, such as Cellular or a Personal Hotspot (on Apple platforms)."
+        },
+        "network_is_constrained": {
+          "type": "string",
+          "required": false,
+          "since": "1.11.0",
+          "description": "Match if network is in Low Data Mode."
+        },
+        "interface_address": {
+          "type": "string",
+          "required": false,
+          "since": "1.13.0",
+          "description": "Match interface address."
+        },
+        "network_interface_address": {
+          "type": "string",
+          "required": false,
+          "since": "1.13.0",
+          "description": "Matches network interface (same values as network_type) address."
+        },
+        "default_interface_address": {
+          "type": "string",
+          "required": false,
+          "since": "1.13.0",
+          "description": "Match default interface address."
+        },
+        "source_mac_address": {
+          "type": "string",
+          "required": false,
+          "since": "1.14.0",
+          "description": "See Neighbor Resolution for setup."
+        },
+        "source_hostname": {
+          "type": "string",
+          "required": false,
+          "since": "1.14.0",
+          "description": "See Neighbor Resolution for setup."
+        },
+        "wifi_ssid": {
+          "type": "integer",
+          "required": false,
+          "description": "Only supported in graphical clients on Android and Apple platforms, or on Linux."
+        },
+        "wifi_bssid": {
+          "type": "integer",
+          "required": false,
+          "description": "Only supported in graphical clients on Android and Apple platforms, or on Linux."
+        },
+        "rule_set": {
+          "type": "string",
+          "required": false,
+          "since": "1.8.0"
+        },
+        "rule_set_ipcidr_match_source": {
+          "type": "integer",
+          "required": false,
+          "since": "1.9.0",
+          "deprecated": true,
+          "description": "Make ip_cidr rule items in rule-sets match the source IP."
+        },
+        "rule_set_ip_cidr_match_source": {
+          "type": "integer",
+          "required": false,
+          "since": "1.10.0"
+        },
+        "match_response": {
+          "type": "string",
+          "required": false,
+          "since": "1.14.0",
+          "description": "When enabled, this rule matches against the evaluated response (set by a preceding evaluate action) instead of only matching the original query."
+        },
+        "ip_accept_any": {
+          "type": "string",
+          "required": false,
+          "since": "1.12.0"
+        },
+        "invert": {
+          "type": "string",
+          "required": false,
+          "description": "Invert match result."
+        },
+        "outbound": {
+          "type": "string",
+          "required": false,
+          "deprecated": true,
+          "description": "Deprecated in sing-box 1.12.0 outbound rule items are deprecated and will be removed in sing-box 1.14.0, check Migration."
+        },
+        "action": {
+          "type": "string",
+          "required": true,
+          "description": "Required See DNS Rule Actions for details."
+        },
+        "server": {
+          "type": "string",
+          "required": false,
+          "deprecated": true,
+          "description": "Deprecated in sing-box 1.11.0 Moved to DNS Rule Action."
+        },
+        "disable_cache": {
+          "type": "boolean",
+          "required": false,
+          "deprecated": true,
+          "description": "Deprecated in sing-box 1.11.0 Moved to DNS Rule Action."
+        },
+        "rewrite_ttl": {
+          "type": "integer",
+          "required": false,
+          "deprecated": true,
+          "description": "Deprecated in sing-box 1.11.0 Moved to DNS Rule Action."
+        },
+        "client_subnet": {
+          "type": "string",
+          "required": false,
+          "deprecated": true,
+          "description": "Deprecated in sing-box 1.11.0 Moved to DNS Rule Action."
+        },
+        "geoip": {
+          "type": "string",
+          "required": false,
+          "description": "Removed in sing-box 1.12.0 GeoIP is deprecated in sing-box 1.8.0 and removed in sing-box 1.12.0, check Migration."
+        },
+        "ip_cidr": {
+          "type": "integer",
+          "required": false,
+          "since": "1.9.0",
+          "description": "As a Legacy Address Filter Field, deprecated."
+        },
+        "ip_is_private": {
+          "type": "string",
+          "required": false,
+          "since": "1.9.0",
+          "description": "As a Legacy Address Filter Field, deprecated."
+        },
+        "rule_set_ip_cidr_accept_empty": {
+          "type": "integer",
+          "required": false,
+          "since": "1.14.0",
+          "deprecated": true,
+          "description": "Make ip_cidr rules in rule-sets accept empty query response."
+        },
+        "response_rcode": {
+          "type": "string",
+          "required": false,
+          "description": "Match DNS response code."
+        },
+        "response_answer": {
+          "type": "string",
+          "required": false,
+          "description": "Match DNS answer records."
+        },
+        "response_ns": {
+          "type": "string",
+          "required": false,
+          "description": "Match DNS name server records."
+        },
+        "response_extra": {
+          "type": "string",
+          "required": false,
+          "description": "Match DNS extra records."
+        },
+        "type": {
+          "type": "string",
+          "required": false,
+          "description": "logical"
+        },
+        "mode": {
+          "type": "string",
+          "required": false,
+          "description": "and or or"
+        },
+        "rules": {
+          "type": "array_object",
+          "required": false,
+          "description": "Included rules."
+        }
+      },
+      "section_titles": [
+        "Structure",
+        "Default Fields",
+        "Legacy Address Filter Fields",
+        "Response Match Fields",
+        "Logical Fields"
+      ]
+    },
+    {
+      "page_id": "rule_action",
+      "source_path": "configuration/dns/rule_action/index.html",
+      "title": "DNS Rule Action",
+      "fields": {
+        "server": {
+          "type": "string",
+          "required": true,
+          "description": "Required Tag of target server."
+        },
+        "strategy": {
+          "type": "string",
+          "required": false,
+          "since": "1.12.0",
+          "deprecated": true,
+          "description": "Set domain strategy for this query."
+        },
+        "disable_cache": {
+          "type": "boolean",
+          "required": false,
+          "description": "Disable cache and save cache in this query."
+        },
+        "disable_optimistic_cache": {
+          "type": "boolean",
+          "required": false,
+          "since": "1.14.0"
+        },
+        "rewrite_ttl": {
+          "type": "integer",
+          "required": false,
+          "description": "Rewrite TTL in DNS responses."
+        },
+        "client_subnet": {
+          "type": "object",
+          "required": false,
+          "since": "1.14.0",
+          "description": "Append a edns0-subnet OPT extra record with the specified IP prefix to every query by default."
+        },
+        "method": {
+          "type": "string",
+          "required": false,
+          "default": "Reply with REFUSED",
+          "description": "default: Reply with REFUSED."
+        },
+        "no_drop": {
+          "type": "string",
+          "required": false,
+          "since": "1.12.0",
+          "description": "If not enabled, method will be temporarily overwritten to drop after 50 triggers in 30s."
+        },
+        "rcode": {
+          "type": "string",
+          "required": false,
+          "description": "The response code."
+        },
+        "answer": {
+          "type": "array_object",
+          "required": false,
+          "description": "List of text DNS record to respond as answers."
+        },
+        "ns": {
+          "type": "array_object",
+          "required": false,
+          "description": "List of text DNS record to respond as name servers."
+        },
+        "extra": {
+          "type": "array_object",
+          "required": false,
+          "description": "List of text DNS record to respond as extra records."
+        }
+      },
+      "section_titles": [
+        "route",
+        "evaluate",
+        "respond",
+        "route-options",
+        "reject",
+        "predefined"
+      ]
+    },
+    {
+      "page_id": "dhcp",
+      "source_path": "configuration/dns/server/dhcp/index.html",
+      "title": "DHCP",
+      "fields": {
+        "interface": {
+          "type": "array_object",
+          "required": false,
+          "description": "Interface name to listen on."
+        }
+      },
+      "section_titles": [
+        "Structure",
+        "Fields",
+        "Dial Fields"
+      ]
+    },
+    {
+      "page_id": "fakeip",
+      "source_path": "configuration/dns/server/fakeip/index.html",
+      "title": "Fake IP",
+      "fields": {
+        "inet4_range": {
+          "type": "string",
+          "required": false,
+          "description": "IPv4 address range for FakeIP."
+        },
+        "inet6_address": {
+          "type": "string",
+          "required": false,
+          "description": "IPv6 address range for FakeIP."
+        }
+      },
+      "section_titles": [
+        "Structure",
+        "Fields"
+      ]
+    },
+    {
+      "page_id": "hosts",
+      "source_path": "configuration/dns/server/hosts/index.html",
+      "title": "Hosts",
+      "fields": {
+        "path": {
+          "type": "array_object",
+          "required": false,
+          "description": "List of paths to hosts files."
+        },
+        "predefined": {
+          "type": "string",
+          "required": false,
+          "description": "Predefined hosts."
+        }
+      },
+      "section_titles": [
+        "Structure",
+        "Fields",
+        "Examples"
+      ]
+    },
+    {
+      "page_id": "http3",
+      "source_path": "configuration/dns/server/http3/index.html",
+      "title": "DNS over HTTP3 (DoH3)",
+      "fields": {
+        "server": {
+          "type": "string",
+          "required": true,
+          "description": "Required The address of the DNS server."
+        },
+        "server_port": {
+          "type": "integer",
+          "required": false,
+          "description": "The port of the DNS server."
+        },
+        "path": {
+          "type": "string",
+          "required": false,
+          "description": "The path of the DNS server."
+        },
+        "headers": {
+          "type": "string",
+          "required": false,
+          "description": "Additional headers to be sent to the DNS server."
+        },
+        "tls": {
+          "type": "boolean",
+          "required": false,
+          "description": "TLS configuration, see TLS."
+        }
+      },
+      "section_titles": [
+        "Structure",
+        "Fields",
+        "Dial Fields"
+      ]
+    },
+    {
+      "page_id": "https",
+      "source_path": "configuration/dns/server/https/index.html",
+      "title": "DNS over HTTPS (DoH)",
+      "fields": {
+        "server": {
+          "type": "string",
+          "required": true,
+          "description": "Required The address of the DNS server."
+        },
+        "server_port": {
+          "type": "integer",
+          "required": false,
+          "description": "The port of the DNS server."
+        },
+        "path": {
+          "type": "string",
+          "required": false,
+          "description": "The path of the DNS server."
+        },
+        "headers": {
+          "type": "string",
+          "required": false,
+          "description": "Additional headers to be sent to the DNS server."
+        },
+        "tls": {
+          "type": "boolean",
+          "required": false,
+          "description": "TLS configuration, see TLS."
+        }
+      },
+      "section_titles": [
+        "Structure",
+        "Fields",
+        "Dial Fields"
+      ]
+    },
+    {
+      "page_id": "server",
+      "source_path": "configuration/dns/server/index.html",
+      "title": "DNS Server",
+      "fields": {
+        "type": {
+          "type": "string",
+          "required": false,
+          "description": "The type of the DNS server."
+        },
+        "tag": {
+          "type": "string",
+          "required": false,
+          "description": "The tag of the DNS server."
+        }
+      },
+      "section_titles": [
+        "Structure"
+      ]
+    },
+    {
+      "page_id": "legacy",
+      "source_path": "configuration/dns/server/legacy/index.html",
+      "title": "Legacy",
+      "fields": {
+        "tag": {
+          "type": "string",
+          "required": false,
+          "description": "The tag of the dns server."
+        },
+        "address": {
+          "type": "string",
+          "required": true,
+          "description": "Required The address of the dns server."
+        },
+        "address_resolver": {
+          "type": "string",
+          "required": false,
+          "dependencies": [
+            {
+              "type": "required_if",
+              "expression": "address contains domain Tag of a another server to resolve the domain name in the address"
+            }
+          ],
+          "description": "Required if address contains domain Tag of a another server to resolve the domain name in the address."
+        },
+        "address_strategy": {
+          "type": "string",
+          "required": false,
+          "description": "The domain strategy for resolving the domain name in the address."
+        },
+        "strategy": {
+          "type": "string",
+          "required": false,
+          "description": "One of prefer_ipv4 prefer_ipv6 ipv4_only ipv6_only."
+        },
+        "detour": {
+          "type": "string",
+          "required": false,
+          "description": "Tag of an outbound for connecting to the dns server."
+        },
+        "client_subnet": {
+          "type": "string",
+          "required": false,
+          "since": "1.9.0",
+          "description": "If value is an IP address instead of prefix, /32 or /128 will be appended automatically."
+        }
+      },
+      "section_titles": [
+        "Structure",
+        "Fields"
+      ]
+    },
+    {
+      "page_id": "local",
+      "source_path": "configuration/dns/server/local/index.html",
+      "title": "Local",
+      "fields": {
+        "prefer_go": {
+          "type": "string",
+          "required": false,
+          "since": "1.13.0",
+          "description": "Specifically, it disables following behaviors which was added as features in sing-box 1.13.0: On Apple platforms: Attempt to resolve A/AAAA requests using getaddrinfo in NetworkExtension."
+        }
+      },
+      "section_titles": [
+        "Structure",
+        "Fields",
+        "Dial Fields"
+      ]
+    },
+    {
+      "page_id": "quic",
+      "source_path": "configuration/dns/server/quic/index.html",
+      "title": "DNS over QUIC (DoQ)",
+      "fields": {
+        "server": {
+          "type": "string",
+          "required": true,
+          "description": "Required The address of the DNS server."
+        },
+        "server_port": {
+          "type": "integer",
+          "required": false,
+          "description": "The port of the DNS server."
+        },
+        "tls": {
+          "type": "boolean",
+          "required": false,
+          "description": "TLS configuration, see TLS."
+        }
+      },
+      "section_titles": [
+        "Structure",
+        "Fields",
+        "Dial Fields"
+      ]
+    },
+    {
+      "page_id": "resolved",
+      "source_path": "configuration/dns/server/resolved/index.html",
+      "title": "Resolved",
+      "fields": {
+        "service": {
+          "type": "string",
+          "required": true,
+          "description": "Required The tag of the Resolved Service."
+        },
+        "accept_default_resolvers": {
+          "type": "string",
+          "required": false,
+          "description": "Indicates whether the default DNS resolvers should be accepted for fallback queries in addition to matching domains."
+        }
+      },
+      "section_titles": [
+        "Fields",
+        "Examples"
+      ]
+    },
+    {
+      "page_id": "tailscale",
+      "source_path": "configuration/dns/server/tailscale/index.html",
+      "title": "Tailscale",
+      "fields": {
+        "endpoint": {
+          "type": "string",
+          "required": true,
+          "description": "Required The tag of the Tailscale Endpoint."
+        },
+        "accept_default_resolvers": {
+          "type": "string",
+          "required": false,
+          "description": "Indicates whether default DNS resolvers should be accepted for fallback queries in addition to MagicDNS。 if not enabled, NXDOMAIN will be returned for non-Tailscale domain queries."
+        }
+      },
+      "section_titles": [
+        "Structure",
+        "Fields",
+        "Examples"
+      ]
+    },
+    {
+      "page_id": "tcp",
+      "source_path": "configuration/dns/server/tcp/index.html",
+      "title": "TCP",
+      "fields": {
+        "server": {
+          "type": "string",
+          "required": true,
+          "description": "Required The address of the DNS server."
+        },
+        "server_port": {
+          "type": "integer",
+          "required": false,
+          "description": "The port of the DNS server."
+        }
+      },
+      "section_titles": [
+        "Structure",
+        "Fields",
+        "Dial Fields"
+      ]
+    },
+    {
+      "page_id": "tls",
+      "source_path": "configuration/dns/server/tls/index.html",
+      "title": "DNS over TLS (DoT)",
+      "fields": {
+        "server": {
+          "type": "string",
+          "required": true,
+          "description": "Required The address of the DNS server."
+        },
+        "server_port": {
+          "type": "integer",
+          "required": false,
+          "description": "The port of the DNS server."
+        },
+        "tls": {
+          "type": "boolean",
+          "required": false,
+          "description": "TLS configuration, see TLS."
+        }
+      },
+      "section_titles": [
+        "Structure",
+        "Fields",
+        "Dial Fields"
+      ]
+    },
+    {
+      "page_id": "udp",
+      "source_path": "configuration/dns/server/udp/index.html",
+      "title": "UDP",
+      "fields": {
+        "server": {
+          "type": "string",
+          "required": true,
+          "description": "Required The address of the DNS server."
+        },
+        "server_port": {
+          "type": "integer",
+          "required": false,
+          "description": "The port of the DNS server."
+        }
+      },
+      "section_titles": [
+        "Structure",
+        "Fields",
+        "Dial Fields"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,725 @@
+### configuration/inbound/anytls/index.html
+h1|AnyTLS
+h3|Structure
+h3|Listen Fields
+h3|Fields
+h4|users
+h4|padding_scheme
+h4|tls
+### configuration/inbound/cloudflared/index.html
+h1|Cloudflared
+h3|Structure
+h3|Fields
+h4|token
+h4|ha_connections
+h4|protocol
+h4|post_quantum
+h4|edge_ip_version
+h4|datagram_version
+h4|grace_period
+h4|region
+h4|control_dialer
+h4|tunnel_dialer
+### configuration/inbound/direct/index.html
+h1|Direct
+h3|Structure
+h3|Listen Fields
+h3|Fields
+h4|network
+h4|override_address
+h4|override_port
+### configuration/inbound/http/index.html
+h1|HTTP
+h3|Structure
+h3|Listen Fields
+h3|Fields
+h4|tls
+h4|users
+h4|set_system_proxy
+### configuration/inbound/hysteria/index.html
+h1|Hysteria
+h3|Structure
+h3|Listen Fields
+h3|Fields
+h4|up, down
+h4|up_mbps, down_mbps
+h4|obfs
+h4|users
+h4|users.auth
+h4|users.auth_str
+h4|recv_window_conn
+h4|recv_window_client
+h4|max_conn_client
+h4|disable_mtu_discovery
+h4|tls
+### configuration/inbound/hysteria2/index.html
+h1|Hysteria2
+h3|Structure
+h3|Listen Fields
+h3|Fields
+h4|up_mbps, down_mbps
+h4|obfs.type
+h4|obfs.password
+h4|users
+h4|users.password
+h4|ignore_client_bandwidth
+h4|tls
+h4|masquerade
+h4|masquerade.type
+h4|masquerade.directory
+h4|masquerade.url
+h4|masquerade.rewrite_host
+h4|masquerade.status_code
+h4|masquerade.headers
+h4|masquerade.content
+h4|bbr_profile
+h4|brutal_debug
+### configuration/inbound/index.html
+h1|Inbound
+h3|Structure
+h3|Fields
+h4|tag
+### configuration/inbound/mixed/index.html
+h1|Mixed
+h3|Structure
+h3|Listen Fields
+h3|Fields
+h4|users
+h4|set_system_proxy
+### configuration/inbound/naive/index.html
+h1|Naive
+h3|Structure
+h3|Listen Fields
+h3|Fields
+h4|network
+h4|users
+h4|quic_congestion_control
+h4|tls
+### configuration/inbound/redirect/index.html
+h1|Redirect
+h3|Structure
+h3|Listen Fields
+### configuration/inbound/shadowsocks/index.html
+h1|Shadowsocks
+h3|Structure
+h3|Multi-User Structure
+h3|Relay Structure
+h3|Listen Fields
+h3|Fields
+h4|network
+h4|method
+h4|password
+h4|managed
+h4|multiplex
+### configuration/inbound/shadowtls/index.html
+h1|ShadowTLS
+h3|Structure
+h3|Listen Fields
+h3|Fields
+h4|version
+h4|password
+h4|users
+h4|handshake
+h4|handshake_for_server_name
+h4|strict_mode
+h4|wildcard_sni
+### configuration/inbound/socks/index.html
+h1|SOCKS
+h3|Structure
+h3|Listen Fields
+h3|Fields
+h4|users
+### configuration/inbound/tproxy/index.html
+h1|TProxy
+h3|Structure
+h3|Listen Fields
+h3|Fields
+h4|network
+### configuration/inbound/trojan/index.html
+h1|Trojan
+h3|Structure
+h3|Listen Fields
+h3|Fields
+h4|users
+h4|tls
+h4|fallback
+h4|fallback_for_alpn
+h4|multiplex
+h4|transport
+### configuration/inbound/tuic/index.html
+h1|TUIC
+h3|Structure
+h3|Listen Fields
+h3|Fields
+h4|users
+h4|users.uuid
+h4|users.password
+h4|congestion_control
+h4|auth_timeout
+h4|zero_rtt_handshake
+h4|heartbeat
+h4|tls
+### configuration/inbound/tun/index.html
+h1|Tun
+h3|Structure
+h3|Fields
+h4|interface_name
+h4|address
+h4|inet4_address
+h4|inet6_address
+h4|mtu
+h4|gso
+h4|auto_route
+h4|iproute2_table_index
+h4|iproute2_rule_index
+h4|auto_redirect
+h4|auto_redirect_input_mark
+h4|auto_redirect_output_mark
+h4|auto_redirect_reset_mark
+h4|auto_redirect_nfqueue
+h4|auto_redirect_iproute2_fallback_rule_index
+h4|exclude_mptcp
+h4|loopback_address
+h4|strict_route
+h4|route_address
+h4|inet4_route_address
+h4|inet6_route_address
+h4|route_exclude_address
+h4|inet4_route_exclude_address
+h4|inet6_route_exclude_address
+h4|route_address_set
+h4|route_exclude_address_set
+h4|endpoint_independent_nat
+h4|udp_timeout
+h4|stack
+h4|include_interface
+h4|exclude_interface
+h4|include_uid
+h4|include_uid_range
+h4|exclude_uid
+h4|exclude_uid_range
+h4|include_android_user
+h4|include_package
+h4|exclude_package
+h4|include_mac_address
+h4|exclude_mac_address
+h4|platform
+h4|platform.http_proxy
+h4|platform.http_proxy.enabled
+h4|platform.http_proxy.server
+h4|platform.http_proxy.server_port
+h4|platform.http_proxy.bypass_domain
+h4|platform.http_proxy.match_domain
+h3|Listen Fields
+### configuration/inbound/vless/index.html
+h1|VLESS
+h3|Structure
+h3|Listen Fields
+h3|Fields
+h4|users
+h4|users.uuid
+h4|users.flow
+h4|tls
+h4|multiplex
+h4|transport
+### configuration/inbound/vmess/index.html
+h1|VMess
+h3|Structure
+h3|Listen Fields
+h3|Fields
+h4|users
+h4|tls
+h4|multiplex
+h4|transport
+### configuration/outbound/anytls/index.html
+h1|AnyTLS
+h3|Structure
+h3|Fields
+h4|server
+h4|server_port
+h4|password
+h4|idle_session_check_interval
+h4|idle_session_timeout
+h4|min_idle_session
+h4|tls
+h3|Dial Fields
+### configuration/outbound/block/index.html
+h1|Block
+h3|Structure
+h3|Fields
+### configuration/outbound/direct/index.html
+h1|Direct
+h3|Structure
+h3|Fields
+h4|override_address
+h4|override_port
+h3|Dial Fields
+### configuration/outbound/dns/index.html
+h1|DNS
+h3|Structure
+h3|Fields
+### configuration/outbound/http/index.html
+h1|HTTP
+h3|Structure
+h3|Fields
+h4|server
+h4|server_port
+h4|username
+h4|password
+h4|path
+h4|headers
+h4|tls
+h3|Dial Fields
+### configuration/outbound/hysteria/index.html
+h1|Hysteria
+h3|Structure
+h3|Fields
+h4|server
+h4|server_port
+h4|server_ports
+h4|hop_interval
+h4|up, down
+h4|up_mbps, down_mbps
+h4|obfs
+h4|auth
+h4|auth_str
+h4|recv_window_conn
+h4|recv_window
+h4|disable_mtu_discovery
+h4|network
+h4|tls
+h3|Dial Fields
+### configuration/outbound/hysteria2/index.html
+h1|Hysteria2
+h3|Structure
+h3|Fields
+h4|server
+h4|server_port
+h4|server_ports
+h4|hop_interval
+h4|hop_interval_max
+h4|up_mbps, down_mbps
+h4|obfs.type
+h4|obfs.password
+h4|password
+h4|network
+h4|tls
+h4|bbr_profile
+h4|brutal_debug
+h3|Dial Fields
+### configuration/outbound/index.html
+h1|Outbound
+h3|Structure
+h3|Fields
+h4|tag
+h3|Features
+h4|Outbounds that support IP connection
+### configuration/outbound/naive/index.html
+h1|Naive
+h3|Structure
+h3|Fields
+h4|server
+h4|server_port
+h4|username
+h4|password
+h4|insecure_concurrency
+h4|extra_headers
+h4|udp_over_tcp
+h4|quic
+h4|quic_congestion_control
+h4|tls
+h3|Dial Fields
+### configuration/outbound/selector/index.html
+h1|Selector
+h3|Structure
+h3|Fields
+h4|outbounds
+h4|default
+h4|interrupt_exist_connections
+### configuration/outbound/shadowsocks/index.html
+h1|Shadowsocks
+h3|Structure
+h3|Fields
+h4|server
+h4|server_port
+h4|method
+h4|password
+h4|plugin
+h4|plugin_opts
+h4|network
+h4|udp_over_tcp
+h4|multiplex
+h3|Dial Fields
+### configuration/outbound/shadowtls/index.html
+h1|ShadowTLS
+h3|Structure
+h3|Fields
+h4|server
+h4|server_port
+h4|version
+h4|password
+h4|tls
+h3|Dial Fields
+### configuration/outbound/socks/index.html
+h1|SOCKS
+h3|Structure
+h3|Fields
+h4|server
+h4|server_port
+h4|version
+h4|username
+h4|password
+h4|network
+h4|udp_over_tcp
+h3|Dial Fields
+### configuration/outbound/ssh/index.html
+h1|SSH
+h3|Structure
+h3|Fields
+h4|server
+h4|server_port
+h4|user
+h4|password
+h4|private_key
+h4|private_key_path
+h4|private_key_passphrase
+h4|host_key
+h4|host_key_algorithms
+h4|client_version
+h3|Dial Fields
+### configuration/outbound/tor/index.html
+h1|Tor
+h3|Structure
+h3|Fields
+h4|executable_path
+h4|extra_args
+h4|data_directory
+h4|torrc
+h3|Dial Fields
+### configuration/outbound/trojan/index.html
+h1|Trojan
+h3|Structure
+h3|Fields
+h4|server
+h4|server_port
+h4|password
+h4|network
+h4|tls
+h4|multiplex
+h4|transport
+h3|Dial Fields
+### configuration/outbound/tuic/index.html
+h1|TUIC
+h3|Structure
+h3|Fields
+h4|server
+h4|server_port
+h4|uuid
+h4|password
+h4|congestion_control
+h4|udp_relay_mode
+h4|udp_over_stream
+h4|network
+h4|tls
+h3|Dial Fields
+### configuration/outbound/urltest/index.html
+h1|URLTest
+h3|Structure
+h3|Fields
+h4|outbounds
+h4|url
+h4|interval
+h4|tolerance
+h4|idle_timeout
+h4|interrupt_exist_connections
+### configuration/outbound/vless/index.html
+h1|VLESS
+h3|Structure
+h3|Fields
+h4|server
+h4|server_port
+h4|uuid
+h4|flow
+h4|network
+h4|tls
+h4|packet_encoding
+h4|multiplex
+h4|transport
+h3|Dial Fields
+### configuration/outbound/vmess/index.html
+h1|VMess
+h3|Structure
+h3|Fields
+h4|server
+h4|server_port
+h4|uuid
+h4|security
+h4|alter_id
+h4|global_padding
+h4|authenticated_length
+h4|network
+h4|tls
+h4|packet_encoding
+h4|multiplex
+h4|transport
+h3|Dial Fields
+### configuration/outbound/wireguard/index.html
+h1|WireGuard
+h3|Structure
+h3|Fields
+h4|server
+h4|server_port
+h4|system_interface
+h4|interface_name
+h4|gso
+h4|local_address
+h4|private_key
+h4|peers
+h4|peers.allowed_ips
+h4|peers.reserved
+h4|peer_public_key
+h4|pre_shared_key
+h4|reserved
+h4|workers
+h4|mtu
+h4|network
+h3|Dial Fields
+### configuration/shared/certificate-provider/acme/index.html
+h1|ACME
+h3|Structure
+h3|Fields
+h4|domain
+h4|data_directory
+h4|default_server_name
+h4|email
+h4|provider
+h4|account_key
+h4|disable_http_challenge
+h4|disable_tls_alpn_challenge
+h4|alternative_http_port
+h4|alternative_tls_port
+h4|external_account
+h4|external_account.key_id
+h4|external_account.mac_key
+h4|dns01_challenge
+h4|key_type
+h4|detour
+### configuration/shared/certificate-provider/cloudflare-origin-ca/index.html
+h1|Cloudflare Origin CA
+h3|Structure
+h3|Fields
+h4|domain
+h4|data_directory
+h4|api_token
+h4|origin_ca_key
+h4|request_type
+h4|requested_validity
+h4|detour
+### configuration/shared/certificate-provider/index.html
+h1|Certificate Provider
+h3|Structure
+h3|Fields
+h4|tag
+### configuration/shared/certificate-provider/tailscale/index.html
+h1|Tailscale
+h3|Structure
+h3|Fields
+h4|endpoint
+### configuration/shared/dial/index.html
+h1|Dial Fields
+h3|Structure
+h3|Fields
+h4|detour
+h4|bind_interface
+h4|inet4_bind_address
+h4|inet6_bind_address
+h4|bind_address_no_port
+h4|routing_mark
+h4|reuse_addr
+h4|netns
+h4|connect_timeout
+h4|tcp_fast_open
+h4|tcp_multi_path
+h4|disable_tcp_keep_alive
+h4|tcp_keep_alive
+h4|tcp_keep_alive_interval
+h4|udp_fragment
+h4|domain_resolver
+h4|network_strategy
+h4|network_type
+h4|fallback_network_type
+h4|fallback_delay
+h4|domain_strategy
+### configuration/shared/dns01_challenge/index.html
+h1|DNS01 Challenge Fields
+h3|Structure
+h3|Fields
+h4|ttl
+h4|propagation_delay
+h4|propagation_timeout
+h4|resolvers
+h4|override_domain
+h4|provider
+h3|Provider Fields
+h4|Alibaba Cloud DNS
+h4|Cloudflare
+h4|ACME-DNS
+### configuration/shared/listen/index.html
+h1|Listen Fields
+h3|Structure
+h3|Fields
+h4|listen
+h4|listen_port
+h4|bind_interface
+h4|routing_mark
+h4|reuse_addr
+h4|netns
+h4|tcp_fast_open
+h4|tcp_multi_path
+h4|disable_tcp_keep_alive
+h4|tcp_keep_alive
+h4|tcp_keep_alive_interval
+h4|udp_fragment
+h4|udp_timeout
+h4|detour
+h4|sniff
+h4|sniff_override_destination
+h4|sniff_timeout
+h4|domain_strategy
+h4|udp_disable_domain_unmapping
+### configuration/shared/multiplex/index.html
+h1|Multiplex
+h3|Inbound
+h3|Outbound
+h3|Inbound Fields
+h4|enabled
+h4|padding
+h4|brutal
+h3|Outbound Fields
+h4|enabled
+h4|protocol
+h4|max_connections
+h4|min_streams
+h4|max_streams
+h4|padding
+h4|brutal
+### configuration/shared/neighbor/index.html
+h1|Neighbor Resolution
+h3|Hostname Visibility
+### configuration/shared/pre-match/index.html
+h1|Pre-match
+h3|How it works
+h3|Supported actions
+h4|reject
+h4|route
+h4|bypass
+### configuration/shared/tcp-brutal/index.html
+h1|TCP Brutal
+h3|Server Requirements
+h3|Structure
+h3|Fields
+h4|enabled
+h4|up_mbps, down_mbps
+### configuration/shared/tls/index.html
+h1|TLS
+h3|Inbound
+h3|Outbound
+h3|Fields
+h4|enabled
+h4|disable_sni
+h4|server_name
+h4|insecure
+h4|alpn
+h4|min_version
+h4|max_version
+h4|cipher_suites
+h4|curve_preferences
+h4|certificate
+h4|certificate_path
+h4|certificate_public_key_sha256
+h4|client_certificate
+h4|client_certificate_path
+h4|client_key
+h4|client_key_path
+h4|key
+h4|key_path
+h4|client_authentication
+h4|client_certificate
+h4|client_certificate_path
+h4|client_certificate_public_key_sha256
+h4|kernel_tx
+h4|kernel_rx
+h4|certificate_provider
+h4|utls
+h3|ECH Fields
+h4|pq_signature_schemes_enabled
+h4|dynamic_record_sizing_disabled
+h4|key
+h4|key_path
+h4|config
+h4|config_path
+h4|query_server_name
+h4|fragment
+h4|fragment_fallback_delay
+h4|record_fragment
+h3|ACME Fields
+h4|domain
+h4|data_directory
+h4|default_server_name
+h4|email
+h4|provider
+h4|disable_http_challenge
+h4|disable_tls_alpn_challenge
+h4|alternative_http_port
+h4|alternative_tls_port
+h4|external_account
+h4|external_account.key_id
+h4|external_account.mac_key
+h4|dns01_challenge
+h3|Reality Fields
+h4|handshake
+h4|private_key
+h4|public_key
+h4|short_id
+h4|max_time_difference
+### configuration/shared/udp-over-tcp/index.html
+h1|UDP over TCP
+h3|Structure
+h3|Fields
+h4|enabled
+h4|version
+h3|Application support
+h3|Protocol details
+h4|Protocol version 1
+h4|Stream format
+h4|Protocol version 2
+### configuration/shared/v2ray-transport/index.html
+h1|V2Ray Transport
+h3|Structure
+h3|HTTP
+h4|host
+h4|path
+h4|method
+h4|headers
+h4|idle_timeout
+h4|ping_timeout
+h3|WebSocket
+h4|path
+h4|headers
+h4|max_early_data
+h4|early_data_header_name
+h3|QUIC
+h3|gRPC
+h4|service_name
+h4|idle_timeout
+h4|ping_timeout
+h4|permit_without_stream
+h3|HTTPUpgrade
+h4|host
+h4|path
+h4|headers
+### configuration/shared/wifi-state/index.html
+h1|Wi-Fi State
+h3|Platform Support
+h3|Linux
+h3|Windows

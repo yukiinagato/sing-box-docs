@@ -1,0 +1,238 @@
+{
+  "module": "service",
+  "source": "configuration/service",
+  "page_count": 6,
+  "pages": [
+    {
+      "page_id": "ccm",
+      "source_path": "configuration/service/ccm/index.html",
+      "title": "CCM",
+      "fields": {
+        "credential_path": {
+          "type": "string",
+          "required": false,
+          "default": "- $CLAUDE_CONFIG_DIR/",
+          "description": "Path to the Claude Code OAuth credentials file."
+        },
+        "usages_path": {
+          "type": "string",
+          "required": false,
+          "description": "Path to the file for storing aggregated API usage statistics."
+        },
+        "users": {
+          "type": "array_object",
+          "required": false,
+          "description": "List of authorized users for token authentication."
+        },
+        "headers": {
+          "type": "string",
+          "required": false,
+          "description": "Custom HTTP headers to send to the Claude API."
+        },
+        "detour": {
+          "type": "string",
+          "required": false,
+          "description": "Outbound tag for connecting to the Claude API."
+        },
+        "tls": {
+          "type": "boolean",
+          "required": false,
+          "description": "TLS configuration, see TLS."
+        },
+        "Server": {
+          "type": "array_object",
+          "required": false,
+          "description": "{ \"services\": [ { \"type\": \"ccm\", \"listen\": \"0.0.0.0\", \"listen_port\": 8080, \"usages_path\": \"./claude-usages.json\", \"users\": [ { \"name\": \"alice\", \"token\": \"ak-ccm-hello-world\" }, { \"name\": \"bob\", \"token\": \"ak-ccm-hello-bob\" } ] } ] }"
+        },
+        "Client": {
+          "type": "string",
+          "required": false,
+          "description": "export ANTHROPIC_BASE_URL=\"http://127.0.0.1:8080\" export ANTHROPIC_AUTH_TOKEN=\"ak-ccm-hello-world\" claude"
+        }
+      },
+      "section_titles": [
+        "Structure",
+        "Listen Fields",
+        "Fields",
+        "Example"
+      ]
+    },
+    {
+      "page_id": "derp",
+      "source_path": "configuration/service/derp/index.html",
+      "title": "DERP",
+      "fields": {
+        "tls": {
+          "type": "boolean",
+          "required": false,
+          "description": "TLS configuration, see TLS."
+        },
+        "config_path": {
+          "type": "object",
+          "required": true,
+          "description": "Required Derper configuration file path."
+        },
+        "verify_client_endpoint": {
+          "type": "string",
+          "required": false,
+          "description": "Tailscale endpoints tags to verify clients."
+        },
+        "verify_client_url": {
+          "type": "array_object",
+          "required": false,
+          "description": "URL to verify clients."
+        },
+        "home": {
+          "type": "string",
+          "required": false,
+          "description": "What to serve at the root path."
+        },
+        "mesh_with": {
+          "type": "string",
+          "required": false,
+          "description": "Mesh with other DERP servers."
+        },
+        "mesh_psk": {
+          "type": "string",
+          "required": false,
+          "description": "Pre-shared key for DERP mesh."
+        },
+        "mesh_psk_file": {
+          "type": "string",
+          "required": false,
+          "description": "Pre-shared key file for DERP mesh."
+        },
+        "stun": {
+          "type": "array_object",
+          "required": false,
+          "description": "STUN server listen options."
+        }
+      },
+      "section_titles": [
+        "Structure",
+        "Listen Fields",
+        "Fields"
+      ]
+    },
+    {
+      "page_id": "service",
+      "source_path": "configuration/service/index.html",
+      "title": "Service",
+      "fields": {
+        "tag": {
+          "type": "string",
+          "required": false,
+          "description": "The tag of the endpoint."
+        }
+      },
+      "section_titles": [
+        "Structure",
+        "Fields"
+      ]
+    },
+    {
+      "page_id": "ocm",
+      "source_path": "configuration/service/ocm/index.html",
+      "title": "OCM",
+      "fields": {
+        "credential_path": {
+          "type": "string",
+          "required": false,
+          "default": "- $CODEX_HOME/auth",
+          "description": "Path to the OpenAI OAuth credentials file."
+        },
+        "usages_path": {
+          "type": "string",
+          "required": false,
+          "description": "Path to the file for storing aggregated API usage statistics."
+        },
+        "users": {
+          "type": "array_object",
+          "required": false,
+          "description": "List of authorized users for token authentication."
+        },
+        "headers": {
+          "type": "string",
+          "required": false,
+          "description": "Custom HTTP headers to send to the OpenAI API."
+        },
+        "detour": {
+          "type": "string",
+          "required": false,
+          "description": "Outbound tag for connecting to the OpenAI API."
+        },
+        "tls": {
+          "type": "boolean",
+          "required": false,
+          "description": "TLS configuration, see TLS."
+        },
+        "Server": {
+          "type": "array_object",
+          "required": false,
+          "description": "{ \"services\": [ { \"type\": \"ocm\", \"listen\": \"0.0.0.0\", \"listen_port\": 8080, \"usages_path\": \"./codex-usages.json\", \"users\": [ { \"name\": \"alice\", \"token\": \"sk-ocm-hello-world\" }, { \"name\": \"bob\", \"token\": \"sk-ocm-hello-bob\" } ] } ] }"
+        },
+        "Client": {
+          "type": "string",
+          "required": false,
+          "description": "Add to ~/.codex/config.toml: # profile = \"ocm\" # set as default profile [model_providers.ocm] name = \"OCM Proxy\" base_url = \"http://127.0.0.1:8080/v1\" supports_websockets = true experimental_bearer_token = \"sk-ocm-hello-world\" [profiles.ocm] model_provider = \"ocm\" # model = \"gpt-5.4\" # if the latest model is not yet publicly released # model_reasoning_effort = \"xhigh\" Then run: codex --profile ocm"
+        }
+      },
+      "section_titles": [
+        "Structure",
+        "Listen Fields",
+        "Fields",
+        "Example",
+        "Example with Authentication"
+      ]
+    },
+    {
+      "page_id": "resolved",
+      "source_path": "configuration/service/resolved/index.html",
+      "title": "Resolved",
+      "fields": {
+        "listen": {
+          "type": "array_object",
+          "required": true,
+          "description": "Required Listen address."
+        },
+        "listen_port": {
+          "type": "integer",
+          "required": true,
+          "description": "Required Listen port."
+        }
+      },
+      "section_titles": [
+        "Structure",
+        "Listen Fields",
+        "Fields"
+      ]
+    },
+    {
+      "page_id": "ssm-api",
+      "source_path": "configuration/service/ssm-api/index.html",
+      "title": "SSM API",
+      "fields": {
+        "servers": {
+          "type": "array_object",
+          "required": true,
+          "description": "Required A mapping Object from HTTP endpoints to Shadowsocks Inbound tags."
+        },
+        "cache_path": {
+          "type": "string",
+          "required": false,
+          "description": "If set, when the server is about to stop, traffic and user state will be saved to the specified JSON file to be restored on the next startup."
+        },
+        "tls": {
+          "type": "boolean",
+          "required": false,
+          "description": "TLS configuration, see TLS."
+        }
+      },
+      "section_titles": [
+        "Structure",
+        "Listen Fields",
+        "Fields"
+      ]
+    }
+  ]
+}

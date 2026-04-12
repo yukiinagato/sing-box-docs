@@ -1,0 +1,188 @@
+{
+  "module": "experimental",
+  "source": "configuration/experimental",
+  "page_count": 4,
+  "pages": [
+    {
+      "page_id": "cache-file",
+      "source_path": "configuration/experimental/cache-file/index.html",
+      "title": "Cache File",
+      "fields": {
+        "enabled": {
+          "type": "boolean",
+          "required": false,
+          "description": "Enable cache file."
+        },
+        "path": {
+          "type": "string",
+          "required": false,
+          "description": "Path to the cache file."
+        },
+        "cache_id": {
+          "type": "integer",
+          "required": false,
+          "description": "Identifier in the cache file If not empty, configuration specified data will use a separate store keyed by it."
+        },
+        "store_fakeip": {
+          "type": "string",
+          "required": false,
+          "description": "Store fakeip in the cache file"
+        },
+        "store_rdrc": {
+          "type": "string",
+          "required": false,
+          "deprecated": true,
+          "description": "Deprecated in sing-box 1.14.0 store_rdrc is deprecated and will be removed in sing-box 1.16.0, check Migration."
+        },
+        "rdrc_timeout": {
+          "type": "integer",
+          "required": false,
+          "description": "Timeout of rejected DNS response cache."
+        },
+        "store_dns": {
+          "type": "string",
+          "required": false,
+          "since": "1.14.0"
+        }
+      },
+      "section_titles": [
+        "Structure",
+        "Fields"
+      ]
+    },
+    {
+      "page_id": "clash-api",
+      "source_path": "configuration/experimental/clash-api/index.html",
+      "title": "Clash API",
+      "fields": {
+        "external_controller": {
+          "type": "array_object",
+          "required": false,
+          "description": "RESTful web API listening address."
+        },
+        "external_ui": {
+          "type": "object",
+          "required": false,
+          "description": "A relative path to the configuration directory or an absolute path to a directory in which you put some static web resource."
+        },
+        "external_ui_download_url": {
+          "type": "string",
+          "required": false,
+          "description": "ZIP download URL for the external UI, will be used if the specified external_ui directory is empty."
+        },
+        "external_ui_download_detour": {
+          "type": "string",
+          "required": false,
+          "description": "The tag of the outbound to download the external UI."
+        },
+        "secret": {
+          "type": "array_object",
+          "required": false,
+          "description": "Secret for the RESTful API (optional) Authenticate by spedifying HTTP header Authorization: Bearer ${secret} ALWAYS set a secret if RESTful API is listening on 0.0.0.0"
+        },
+        "default_mode": {
+          "type": "string",
+          "required": false,
+          "description": "This setting has no direct effect, but can be used in routing and DNS rules via the clash_mode rule item."
+        },
+        "access_control_allow_origin": {
+          "type": "boolean",
+          "required": false,
+          "since": "1.10.0",
+          "description": "To access the Clash API on a private network from a public website, you must explicitly specify it in access_control_allow_origin instead of using *."
+        },
+        "access_control_allow_private_network": {
+          "type": "boolean",
+          "required": false,
+          "since": "1.10.0",
+          "description": "To access the Clash API on a private network from a public website, access_control_allow_private_network must be enabled."
+        },
+        "store_mode": {
+          "type": "string",
+          "required": false,
+          "deprecated": true,
+          "description": "Deprecated in sing-box 1.8.0 store_mode is deprecated in Clash API and enabled by default if cache_file.enabled."
+        },
+        "store_selected": {
+          "type": "string",
+          "required": false,
+          "deprecated": true,
+          "description": "Deprecated in sing-box 1.8.0 store_selected is deprecated in Clash API and enabled by default if cache_file.enabled."
+        },
+        "store_fakeip": {
+          "type": "string",
+          "required": false,
+          "deprecated": true,
+          "description": "Deprecated in sing-box 1.8.0 store_selected is deprecated in Clash API and migrated to cache_file.store_fakeip."
+        },
+        "cache_file": {
+          "type": "string",
+          "required": false,
+          "deprecated": true,
+          "description": "Deprecated in sing-box 1.8.0 cache_file is deprecated in Clash API and migrated to cache_file.enabled and cache_file.path."
+        },
+        "cache_id": {
+          "type": "integer",
+          "required": false,
+          "deprecated": true,
+          "description": "Deprecated in sing-box 1.8.0 cache_id is deprecated in Clash API and migrated to cache_file.cache_id."
+        }
+      },
+      "section_titles": [
+        "Structure",
+        "Fields"
+      ]
+    },
+    {
+      "page_id": "experimental",
+      "source_path": "configuration/experimental/index.html",
+      "title": "Experimental",
+      "fields": {},
+      "section_titles": [
+        "Structure",
+        "Fields"
+      ]
+    },
+    {
+      "page_id": "v2ray-api",
+      "source_path": "configuration/experimental/v2ray-api/index.html",
+      "title": "V2Ray API",
+      "fields": {
+        "listen": {
+          "type": "array_object",
+          "required": false,
+          "description": "gRPC API listening address."
+        },
+        "stats": {
+          "type": "string",
+          "required": false,
+          "description": "Traffic statistics service settings."
+        },
+        "stats.enabled": {
+          "type": "boolean",
+          "required": false,
+          "description": "Enable statistics service."
+        },
+        "stats.inbounds": {
+          "type": "array_object",
+          "required": false,
+          "description": "Inbound list to count traffic."
+        },
+        "stats.outbounds": {
+          "type": "array_object",
+          "required": false,
+          "description": "Outbound list to count traffic."
+        },
+        "stats.users": {
+          "type": "array_object",
+          "required": false,
+          "description": "User list to count traffic."
+        }
+      },
+      "section_titles": [
+        "Structure",
+        "Fields"
+      ]
+    }
+  ]
+}

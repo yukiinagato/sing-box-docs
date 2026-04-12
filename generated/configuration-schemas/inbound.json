@@ -1,0 +1,1046 @@
+{
+  "module": "inbound",
+  "source": "configuration/inbound",
+  "page_count": 19,
+  "pages": [
+    {
+      "page_id": "anytls",
+      "source_path": "configuration/inbound/anytls/index.html",
+      "title": "AnyTLS",
+      "fields": {
+        "users": {
+          "type": "array_object",
+          "required": true,
+          "description": "Required AnyTLS users."
+        },
+        "padding_scheme": {
+          "type": "array_object",
+          "required": false,
+          "description": "AnyTLS padding scheme line array."
+        },
+        "tls": {
+          "type": "boolean",
+          "required": false,
+          "description": "TLS configuration, see TLS."
+        }
+      },
+      "section_titles": [
+        "Structure",
+        "Listen Fields",
+        "Fields"
+      ]
+    },
+    {
+      "page_id": "cloudflared",
+      "source_path": "configuration/inbound/cloudflared/index.html",
+      "title": "Cloudflared",
+      "fields": {
+        "token": {
+          "type": "string",
+          "required": true,
+          "description": "Required Base64-encoded tunnel token from the Cloudflare Zero Trust dashboard (Networks → Tunnels → Install connector)."
+        },
+        "ha_connections": {
+          "type": "string",
+          "required": false,
+          "description": "Number of high-availability connections to the Cloudflare edge."
+        },
+        "protocol": {
+          "type": "string",
+          "required": false,
+          "description": "Transport protocol for edge connections."
+        },
+        "post_quantum": {
+          "type": "string",
+          "required": false,
+          "description": "Enable post-quantum key exchange on the control connection."
+        },
+        "edge_ip_version": {
+          "type": "string",
+          "required": false,
+          "description": "IP version used when connecting to the Cloudflare edge."
+        },
+        "datagram_version": {
+          "type": "string",
+          "required": false,
+          "description": "Datagram protocol version used for UDP proxying over QUIC."
+        },
+        "grace_period": {
+          "type": "string",
+          "required": false,
+          "description": "Graceful shutdown window for in-flight edge connections."
+        },
+        "region": {
+          "type": "string",
+          "required": false,
+          "dependencies": [
+            {
+              "type": "conflicts_with",
+              "field": "endpoints embedded in token"
+            }
+          ],
+          "description": "Cloudflare edge region selector."
+        },
+        "control_dialer": {
+          "type": "string",
+          "required": false,
+          "description": "Dial Fields used when the tunnel client dials the Cloudflare control plane."
+        },
+        "tunnel_dialer": {
+          "type": "string",
+          "required": false,
+          "description": "Dial Fields used when the tunnel client dials the Cloudflare edge data plane."
+        }
+      },
+      "section_titles": [
+        "Structure",
+        "Fields"
+      ]
+    },
+    {
+      "page_id": "direct",
+      "source_path": "configuration/inbound/direct/index.html",
+      "title": "Direct",
+      "fields": {
+        "network": {
+          "type": "array_object",
+          "required": false,
+          "description": "Listen network, one of tcp udp."
+        },
+        "override_address": {
+          "type": "string",
+          "required": false,
+          "description": "Override the connection destination address."
+        },
+        "override_port": {
+          "type": "integer",
+          "required": false,
+          "description": "Override the connection destination port."
+        }
+      },
+      "section_titles": [
+        "Structure",
+        "Listen Fields",
+        "Fields"
+      ]
+    },
+    {
+      "page_id": "http",
+      "source_path": "configuration/inbound/http/index.html",
+      "title": "HTTP",
+      "fields": {
+        "tls": {
+          "type": "boolean",
+          "required": false,
+          "description": "TLS configuration, see TLS."
+        },
+        "users": {
+          "type": "array_object",
+          "required": false,
+          "dependencies": [
+            {
+              "type": "required_if",
+              "expression": "empty"
+            }
+          ],
+          "description": "HTTP users."
+        },
+        "set_system_proxy": {
+          "type": "object",
+          "required": false,
+          "description": "Only supported on Linux, Android, Windows, and macOS."
+        }
+      },
+      "section_titles": [
+        "Structure",
+        "Listen Fields",
+        "Fields"
+      ]
+    },
+    {
+      "page_id": "hysteria",
+      "source_path": "configuration/inbound/hysteria/index.html",
+      "title": "Hysteria",
+      "fields": {
+        "up, down": {
+          "type": "string",
+          "required": true,
+          "description": "Required Format: [Integer] [Unit] e.g."
+        },
+        "up_mbps, down_mbps": {
+          "type": "string",
+          "required": true,
+          "description": "Required up, down in Mbps."
+        },
+        "obfs": {
+          "type": "string",
+          "required": false,
+          "description": "Obfuscated password."
+        },
+        "users": {
+          "type": "array_object",
+          "required": false,
+          "description": "Hysteria users"
+        },
+        "users.auth": {
+          "type": "array_object",
+          "required": false,
+          "description": "Authentication password, in base64."
+        },
+        "users.auth_str": {
+          "type": "array_object",
+          "required": false,
+          "description": "Authentication password."
+        },
+        "recv_window_conn": {
+          "type": "string",
+          "required": false,
+          "description": "The QUIC stream-level flow control window for receiving data."
+        },
+        "recv_window_client": {
+          "type": "string",
+          "required": false,
+          "description": "The QUIC connection-level flow control window for receiving data."
+        },
+        "max_conn_client": {
+          "type": "string",
+          "required": false,
+          "description": "The maximum number of QUIC concurrent bidirectional streams that a peer is allowed to open."
+        },
+        "disable_mtu_discovery": {
+          "type": "boolean",
+          "required": false,
+          "description": "Disables Path MTU Discovery (RFC 8899)."
+        },
+        "tls": {
+          "type": "boolean",
+          "required": true,
+          "description": "Required TLS configuration, see TLS."
+        }
+      },
+      "section_titles": [
+        "Structure",
+        "Listen Fields",
+        "Fields"
+      ]
+    },
+    {
+      "page_id": "hysteria2",
+      "source_path": "configuration/inbound/hysteria2/index.html",
+      "title": "Hysteria2",
+      "fields": {
+        "up_mbps, down_mbps": {
+          "type": "string",
+          "required": false,
+          "dependencies": [
+            {
+              "type": "conflicts_with",
+              "field": "ignore_client_bandwidth"
+            }
+          ],
+          "description": "Max bandwidth, in Mbps."
+        },
+        "obfs.type": {
+          "type": "string",
+          "required": false,
+          "dependencies": [
+            {
+              "type": "requires",
+              "field": "salamander"
+            }
+          ],
+          "description": "QUIC traffic obfuscator type, only available with salamander."
+        },
+        "obfs.password": {
+          "type": "string",
+          "required": false,
+          "description": "QUIC traffic obfuscator password."
+        },
+        "users": {
+          "type": "array_object",
+          "required": false,
+          "description": "Hysteria2 users"
+        },
+        "users.password": {
+          "type": "array_object",
+          "required": false,
+          "description": "Authentication password"
+        },
+        "ignore_client_bandwidth": {
+          "type": "integer",
+          "required": false,
+          "description": "When up_mbps and down_mbps are not set: Commands clients to use the BBR CC instead of Hysteria CC."
+        },
+        "tls": {
+          "type": "boolean",
+          "required": true,
+          "description": "Required TLS configuration, see TLS."
+        },
+        "masquerade": {
+          "type": "object",
+          "required": false,
+          "dependencies": [
+            {
+              "type": "conflicts_with",
+              "field": "masquerade"
+            }
+          ],
+          "description": "HTTP3 server behavior (URL string configuration) when authentication fails."
+        },
+        "masquerade.type": {
+          "type": "object",
+          "required": false,
+          "dependencies": [
+            {
+              "type": "conflicts_with",
+              "field": "masquerade"
+            }
+          ],
+          "description": "HTTP3 server behavior (Object configuration) when authentication fails."
+        },
+        "masquerade.directory": {
+          "type": "string",
+          "required": false,
+          "description": "File server root directory."
+        },
+        "masquerade.url": {
+          "type": "string",
+          "required": false,
+          "description": "Reverse proxy target URL."
+        },
+        "masquerade.rewrite_host": {
+          "type": "string",
+          "required": false,
+          "description": "Rewrite the Host header to the target URL."
+        },
+        "masquerade.status_code": {
+          "type": "string",
+          "required": false,
+          "description": "Fixed response status code."
+        },
+        "masquerade.headers": {
+          "type": "string",
+          "required": false,
+          "description": "Fixed response headers."
+        },
+        "masquerade.content": {
+          "type": "string",
+          "required": false,
+          "description": "Fixed response content."
+        },
+        "bbr_profile": {
+          "type": "string",
+          "required": false,
+          "since": "1.14.0",
+          "description": "standard is used by default."
+        },
+        "brutal_debug": {
+          "type": "boolean",
+          "required": false,
+          "description": "Enable debug information logging for Hysteria Brutal CC."
+        }
+      },
+      "section_titles": [
+        "Structure",
+        "Listen Fields",
+        "Fields"
+      ]
+    },
+    {
+      "page_id": "inbound",
+      "source_path": "configuration/inbound/index.html",
+      "title": "Inbound",
+      "fields": {
+        "tag": {
+          "type": "string",
+          "required": false,
+          "description": "The tag of the inbound."
+        }
+      },
+      "section_titles": [
+        "Structure",
+        "Fields"
+      ]
+    },
+    {
+      "page_id": "mixed",
+      "source_path": "configuration/inbound/mixed/index.html",
+      "title": "Mixed",
+      "fields": {
+        "users": {
+          "type": "array_object",
+          "required": false,
+          "dependencies": [
+            {
+              "type": "required_if",
+              "expression": "empty"
+            }
+          ],
+          "description": "SOCKS and HTTP users."
+        },
+        "set_system_proxy": {
+          "type": "object",
+          "required": false,
+          "description": "Only supported on Linux, Android, Windows, and macOS."
+        }
+      },
+      "section_titles": [
+        "Structure",
+        "Listen Fields",
+        "Fields"
+      ]
+    },
+    {
+      "page_id": "naive",
+      "source_path": "configuration/inbound/naive/index.html",
+      "title": "Naive",
+      "fields": {
+        "network": {
+          "type": "array_object",
+          "required": false,
+          "description": "Listen network, one of tcp udp."
+        },
+        "users": {
+          "type": "array_object",
+          "required": true,
+          "description": "Required Naive users."
+        },
+        "quic_congestion_control": {
+          "type": "string",
+          "required": false,
+          "since": "1.13.0",
+          "description": "Algorithm Description bbr BBR bbr_standard BBR (Standard version) bbr2 BBRv2 bbr2_variant BBRv2 (An experimental variant) cubic CUBIC reno New Reno bbr is used by default (the default of QUICHE, used by Chromium which NaiveProxy is based on)."
+        },
+        "tls": {
+          "type": "boolean",
+          "required": false,
+          "description": "TLS configuration, see TLS."
+        }
+      },
+      "section_titles": [
+        "Structure",
+        "Listen Fields",
+        "Fields"
+      ]
+    },
+    {
+      "page_id": "redirect",
+      "source_path": "configuration/inbound/redirect/index.html",
+      "title": "Redirect",
+      "fields": {},
+      "section_titles": [
+        "Structure",
+        "Listen Fields"
+      ]
+    },
+    {
+      "page_id": "shadowsocks",
+      "source_path": "configuration/inbound/shadowsocks/index.html",
+      "title": "Shadowsocks",
+      "fields": {
+        "network": {
+          "type": "array_object",
+          "required": false,
+          "description": "Listen network, one of tcp udp."
+        },
+        "method": {
+          "type": "string",
+          "required": true,
+          "description": "Required Method Key Length 2022-blake3-aes-128-gcm 16 2022-blake3-aes-256-gcm 32 2022-blake3-chacha20-poly1305 32 none / aes-128-gcm / aes-192-gcm / aes-256-gcm / chacha20-ietf-poly1305 / xchacha20-ietf-poly1305 /"
+        },
+        "password": {
+          "type": "string",
+          "required": true,
+          "description": "Required Method Password Format none / 2022 methods sing-box generate rand --base64 <Key Length> other methods any string"
+        },
+        "managed": {
+          "type": "string",
+          "required": false,
+          "description": "Enable this when the inbound is managed by the SSM API for dynamic user."
+        },
+        "multiplex": {
+          "type": "string",
+          "required": false,
+          "description": "See Multiplex for details."
+        }
+      },
+      "section_titles": [
+        "Structure",
+        "Multi-User Structure",
+        "Relay Structure",
+        "Listen Fields",
+        "Fields"
+      ]
+    },
+    {
+      "page_id": "shadowtls",
+      "source_path": "configuration/inbound/shadowtls/index.html",
+      "title": "ShadowTLS",
+      "fields": {
+        "version": {
+          "type": "string",
+          "required": false,
+          "description": "ShadowTLS protocol version."
+        },
+        "password": {
+          "type": "string",
+          "required": false,
+          "description": "ShadowTLS password."
+        },
+        "users": {
+          "type": "array_object",
+          "required": false,
+          "description": "ShadowTLS users."
+        },
+        "handshake": {
+          "type": "string",
+          "required": true,
+          "dependencies": [
+            {
+              "type": "required_if",
+              "expression": "wildcard_sni is configured to all, the server address is optional"
+            }
+          ],
+          "description": "Required When wildcard_sni is configured to all, the server address is optional."
+        },
+        "handshake_for_server_name": {
+          "type": "string",
+          "required": false,
+          "description": "Handshake server address and Dial Fields for specific server name."
+        },
+        "strict_mode": {
+          "type": "boolean",
+          "required": false,
+          "description": "ShadowTLS strict mode."
+        },
+        "wildcard_sni": {
+          "type": "string",
+          "required": false,
+          "since": "1.12.0",
+          "description": "authed: Authenticated connections will have their destination overwritten to (servername):443 all: All connections will have their destination overwritten to (servername):443 Additionally, connections matching handshake_for_server_name are not affected."
+        }
+      },
+      "section_titles": [
+        "Structure",
+        "Listen Fields",
+        "Fields"
+      ]
+    },
+    {
+      "page_id": "socks",
+      "source_path": "configuration/inbound/socks/index.html",
+      "title": "SOCKS",
+      "fields": {
+        "users": {
+          "type": "array_object",
+          "required": false,
+          "dependencies": [
+            {
+              "type": "required_if",
+              "expression": "empty"
+            }
+          ],
+          "description": "SOCKS users."
+        }
+      },
+      "section_titles": [
+        "Structure",
+        "Listen Fields",
+        "Fields"
+      ]
+    },
+    {
+      "page_id": "tproxy",
+      "source_path": "configuration/inbound/tproxy/index.html",
+      "title": "TProxy",
+      "fields": {
+        "network": {
+          "type": "array_object",
+          "required": false,
+          "description": "Listen network, one of tcp udp."
+        }
+      },
+      "section_titles": [
+        "Structure",
+        "Listen Fields",
+        "Fields"
+      ]
+    },
+    {
+      "page_id": "trojan",
+      "source_path": "configuration/inbound/trojan/index.html",
+      "title": "Trojan",
+      "fields": {
+        "users": {
+          "type": "array_object",
+          "required": true,
+          "description": "Required Trojan users."
+        },
+        "tls": {
+          "type": "boolean",
+          "required": false,
+          "description": "TLS configuration, see TLS."
+        },
+        "fallback": {
+          "type": "object",
+          "required": false,
+          "description": "There is no evidence that GFW detects and blocks Trojan servers based on HTTP responses, and opening the standard http/s port on the server is a much bigger signature."
+        },
+        "fallback_for_alpn": {
+          "type": "object",
+          "required": false,
+          "description": "Fallback server configuration for specified ALPN."
+        },
+        "multiplex": {
+          "type": "string",
+          "required": false,
+          "description": "See Multiplex for details."
+        },
+        "transport": {
+          "type": "integer",
+          "required": false,
+          "description": "V2Ray Transport configuration, see V2Ray Transport."
+        }
+      },
+      "section_titles": [
+        "Structure",
+        "Listen Fields",
+        "Fields"
+      ]
+    },
+    {
+      "page_id": "tuic",
+      "source_path": "configuration/inbound/tuic/index.html",
+      "title": "TUIC",
+      "fields": {
+        "users": {
+          "type": "array_object",
+          "required": false,
+          "description": "TUIC users"
+        },
+        "users.uuid": {
+          "type": "integer",
+          "required": true,
+          "description": "Required TUIC user uuid"
+        },
+        "users.password": {
+          "type": "array_object",
+          "required": false,
+          "description": "TUIC user password"
+        },
+        "congestion_control": {
+          "type": "string",
+          "required": false,
+          "description": "QUIC congestion control algorithm One of: cubic, new_reno, bbr cubic is used by default."
+        },
+        "auth_timeout": {
+          "type": "integer",
+          "required": false,
+          "description": "How long the server should wait for the client to send the authentication command 3s is used by default."
+        },
+        "zero_rtt_handshake": {
+          "type": "string",
+          "required": false,
+          "description": "Enable 0-RTT QUIC connection handshake on the client side This is not impacting much on the performance, as the protocol is fully multiplexed Disabling this is highly recommended, as it is vulnerable to replay attacks."
+        },
+        "heartbeat": {
+          "type": "string",
+          "required": false,
+          "description": "Interval for sending heartbeat packets for keeping the connection alive 10s is used by default."
+        },
+        "tls": {
+          "type": "boolean",
+          "required": true,
+          "description": "Required TLS configuration, see TLS."
+        }
+      },
+      "section_titles": [
+        "Structure",
+        "Listen Fields",
+        "Fields"
+      ]
+    },
+    {
+      "page_id": "tun",
+      "source_path": "configuration/inbound/tun/index.html",
+      "title": "Tun",
+      "fields": {
+        "interface_name": {
+          "type": "string",
+          "required": false,
+          "description": "Virtual device name, automatically selected if empty."
+        },
+        "address": {
+          "type": "string",
+          "required": false,
+          "since": "1.10.0"
+        },
+        "inet4_address": {
+          "type": "string",
+          "required": false,
+          "deprecated": true,
+          "description": "Deprecated in sing-box 1.10.0 inet4_address is merged to address and will be removed in sing-box 1.12.0."
+        },
+        "inet6_address": {
+          "type": "string",
+          "required": false,
+          "deprecated": true,
+          "description": "Deprecated in sing-box 1.10.0 inet6_address is merged to address and will be removed in sing-box 1.12.0."
+        },
+        "mtu": {
+          "type": "integer",
+          "required": false,
+          "description": "The maximum transmission unit."
+        },
+        "gso": {
+          "type": "string",
+          "required": false,
+          "since": "1.8.0",
+          "deprecated": true,
+          "description": "Deprecated in sing-box 1.11.0 GSO has no advantages for transparent proxy scenarios, is deprecated and no longer works, and will be removed in sing-box 1.12.0."
+        },
+        "auto_route": {
+          "type": "string",
+          "required": false,
+          "description": "Set the default route to the Tun."
+        },
+        "iproute2_table_index": {
+          "type": "string",
+          "required": false,
+          "since": "1.10.0",
+          "description": "2022 is used by default."
+        },
+        "iproute2_rule_index": {
+          "type": "string",
+          "required": false,
+          "since": "1.10.0",
+          "description": "9000 is used by default."
+        },
+        "auto_redirect": {
+          "type": "object",
+          "required": false,
+          "dependencies": [
+            {
+              "type": "conflicts_with",
+              "field": "route"
+            }
+          ],
+          "since": "1.10.0",
+          "description": "Improve TUN routing and performance using nftables."
+        },
+        "auto_redirect_input_mark": {
+          "type": "integer",
+          "required": false,
+          "since": "1.10.0",
+          "description": "0x2023 is used by default."
+        },
+        "auto_redirect_output_mark": {
+          "type": "integer",
+          "required": false,
+          "since": "1.10.0",
+          "description": "0x2024 is used by default."
+        },
+        "auto_redirect_reset_mark": {
+          "type": "integer",
+          "required": false,
+          "since": "1.13.0",
+          "description": "0x2025 is used by default."
+        },
+        "auto_redirect_nfqueue": {
+          "type": "string",
+          "required": false,
+          "since": "1.13.0",
+          "description": "100 is used by default."
+        },
+        "auto_redirect_iproute2_fallback_rule_index": {
+          "type": "string",
+          "required": false,
+          "since": "1.12.18",
+          "description": "This rule is checked after system default rules (32766: main, 32767: default), routing traffic to the sing-box table only when no route is found in system tables."
+        },
+        "exclude_mptcp": {
+          "type": "string",
+          "required": false,
+          "since": "1.13.0",
+          "description": "MPTCP cannot be transparently proxied due to protocol limitations."
+        },
+        "loopback_address": {
+          "type": "string",
+          "required": false,
+          "since": "1.12.0",
+          "description": "Setting option value to 10.7.0.1 achieves the same behavior as SideStore/StosVPN."
+        },
+        "strict_route": {
+          "type": "boolean",
+          "required": false,
+          "description": "Enforce strict routing rules when auto_route is enabled: In Linux: Let unsupported network unreachable For legacy reasons, when neither strict_route nor auto_redirect are enabled, all ICMP traffic will not go through TUN."
+        },
+        "route_address": {
+          "type": "string",
+          "required": false,
+          "since": "1.10.0"
+        },
+        "inet4_route_address": {
+          "type": "string",
+          "required": false,
+          "deprecated": true,
+          "description": "Deprecated in sing-box 1.10.0 inet4_route_address is deprecated and will be removed in sing-box 1.12.0, please use route_address instead."
+        },
+        "inet6_route_address": {
+          "type": "string",
+          "required": false,
+          "deprecated": true,
+          "description": "Deprecated in sing-box 1.10.0 inet6_route_address is deprecated and will be removed in sing-box 1.12.0, please use route_address instead."
+        },
+        "route_exclude_address": {
+          "type": "string",
+          "required": false,
+          "since": "1.10.0"
+        },
+        "inet4_route_exclude_address": {
+          "type": "string",
+          "required": false,
+          "deprecated": true,
+          "description": "Deprecated in sing-box 1.10.0 inet4_route_exclude_address is deprecated and will be removed in sing-box 1.12.0, please use route_exclude_address instead."
+        },
+        "inet6_route_exclude_address": {
+          "type": "string",
+          "required": false,
+          "deprecated": true,
+          "description": "Deprecated in sing-box 1.10.0 inet6_route_exclude_address is deprecated and will be removed in sing-box 1.12.0, please use route_exclude_address instead."
+        },
+        "route_address_set": {
+          "type": "object",
+          "required": false,
+          "dependencies": [
+            {
+              "type": "conflicts_with",
+              "field": "route"
+            }
+          ],
+          "since": "1.11.0",
+          "description": "With auto_redirect enabledWithout auto_redirect enabled Since sing-box 1.10.0 Only supported on Linux with nftables and requires auto_route and auto_redirect enabled."
+        },
+        "route_exclude_address_set": {
+          "type": "string",
+          "required": false,
+          "since": "1.11.0",
+          "description": "With auto_redirect enabledWithout auto_redirect enabled Since sing-box 1.10.0 Only supported on Linux with nftables and requires auto_route and auto_redirect enabled."
+        },
+        "endpoint_independent_nat": {
+          "type": "string",
+          "required": false,
+          "description": "This item is only available on the gvisor stack, other stacks are endpoint-independent NAT by default."
+        },
+        "udp_timeout": {
+          "type": "integer",
+          "required": false,
+          "description": "UDP NAT expiration time."
+        },
+        "stack": {
+          "type": "string",
+          "required": false,
+          "description": "Changes in sing-box 1.8.0 The legacy LWIP stack has been deprecated and removed."
+        },
+        "include_interface": {
+          "type": "string",
+          "required": false,
+          "dependencies": [
+            {
+              "type": "conflicts_with",
+              "field": "exclude_interface"
+            }
+          ],
+          "description": "Interface rules are only supported on Linux and require auto_route."
+        },
+        "exclude_interface": {
+          "type": "string",
+          "required": false,
+          "dependencies": [
+            {
+              "type": "conflicts_with",
+              "field": "include_interface"
+            }
+          ],
+          "description": "When strict_route enabled, return traffic to excluded interfaces will not be automatically excluded, so add them as well (example: br-lan and pppoe-wan)."
+        },
+        "include_uid": {
+          "type": "integer",
+          "required": false,
+          "description": "UID rules are only supported on Linux and require auto_route."
+        },
+        "include_uid_range": {
+          "type": "integer",
+          "required": false,
+          "description": "Limit users in route, but in range."
+        },
+        "exclude_uid": {
+          "type": "integer",
+          "required": false,
+          "description": "Exclude users in route."
+        },
+        "exclude_uid_range": {
+          "type": "integer",
+          "required": false,
+          "description": "Exclude users in route, but in range."
+        },
+        "include_android_user": {
+          "type": "integer",
+          "required": false,
+          "description": "Android user and package rules are only supported on Android and require auto_route."
+        },
+        "include_package": {
+          "type": "string",
+          "required": false,
+          "description": "Limit android packages in route."
+        },
+        "exclude_package": {
+          "type": "string",
+          "required": false,
+          "description": "Exclude android packages in route."
+        },
+        "include_mac_address": {
+          "type": "string",
+          "required": false,
+          "dependencies": [
+            {
+              "type": "conflicts_with",
+              "field": "exclude_mac_address"
+            }
+          ],
+          "since": "1.14.0",
+          "description": "Limit MAC addresses in route."
+        },
+        "exclude_mac_address": {
+          "type": "string",
+          "required": false,
+          "dependencies": [
+            {
+              "type": "conflicts_with",
+              "field": "include_mac_address"
+            }
+          ],
+          "since": "1.14.0",
+          "description": "Exclude MAC addresses in route."
+        },
+        "platform": {
+          "type": "string",
+          "required": false,
+          "description": "Platform-specific settings, provided by client applications."
+        },
+        "platform.http_proxy": {
+          "type": "string",
+          "required": false,
+          "description": "System HTTP proxy settings."
+        },
+        "platform.http_proxy.enabled": {
+          "type": "boolean",
+          "required": false,
+          "description": "Enable system HTTP proxy."
+        },
+        "platform.http_proxy.server": {
+          "type": "string",
+          "required": true,
+          "description": "Required HTTP proxy server address."
+        },
+        "platform.http_proxy.server_port": {
+          "type": "integer",
+          "required": true,
+          "description": "Required HTTP proxy server port."
+        },
+        "platform.http_proxy.bypass_domain": {
+          "type": "string",
+          "required": false,
+          "description": "On Apple platforms, bypass_domain items matches hostname suffixes."
+        },
+        "platform.http_proxy.match_domain": {
+          "type": "array_object",
+          "required": false,
+          "description": "Only supported in graphical clients on Apple platforms."
+        }
+      },
+      "section_titles": [
+        "Structure",
+        "Fields",
+        "Listen Fields"
+      ]
+    },
+    {
+      "page_id": "vless",
+      "source_path": "configuration/inbound/vless/index.html",
+      "title": "VLESS",
+      "fields": {
+        "users": {
+          "type": "array_object",
+          "required": true,
+          "description": "Required VLESS users."
+        },
+        "users.uuid": {
+          "type": "integer",
+          "required": true,
+          "description": "Required VLESS user id."
+        },
+        "users.flow": {
+          "type": "array_object",
+          "required": false,
+          "allowedValues": [
+            "xtls-rprx-vision"
+          ],
+          "description": "VLESS Sub-protocol."
+        },
+        "tls": {
+          "type": "boolean",
+          "required": false,
+          "description": "TLS configuration, see TLS."
+        },
+        "multiplex": {
+          "type": "string",
+          "required": false,
+          "description": "See Multiplex for details."
+        },
+        "transport": {
+          "type": "integer",
+          "required": false,
+          "description": "V2Ray Transport configuration, see V2Ray Transport."
+        }
+      },
+      "section_titles": [
+        "Structure",
+        "Listen Fields",
+        "Fields"
+      ]
+    },
+    {
+      "page_id": "vmess",
+      "source_path": "configuration/inbound/vmess/index.html",
+      "title": "VMess",
+      "fields": {
+        "users": {
+          "type": "array_object",
+          "required": true,
+          "description": "Required VMess users."
+        },
+        "tls": {
+          "type": "boolean",
+          "required": false,
+          "description": "TLS configuration, see TLS."
+        },
+        "multiplex": {
+          "type": "string",
+          "required": false,
+          "description": "See Multiplex for details."
+        },
+        "transport": {
+          "type": "integer",
+          "required": false,
+          "description": "V2Ray Transport configuration, see V2Ray Transport."
+        }
+      },
+      "section_titles": [
+        "Structure",
+        "Listen Fields",
+        "Fields"
+      ]
+    }
+  ]
+}
