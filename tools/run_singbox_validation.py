@@ -36,7 +36,13 @@ def run_cmd(command: list[str]) -> subprocess.CompletedProcess[str]:
 def suggest_schema_fix(stderr: str) -> str:
     lowered = stderr.lower()
     if "unknown field" in lowered:
-        return "检测到 unknown field：请对照 sing-box 1.14 文档检查字段是否重命名，或字段位置是否迁移。"
+        rename_hints = []
+        if "selector" in lowered:
+            rename_hints.append("selector 可能需要迁移到 group 或 action 结构。")
+        if "outbound_tag" in lowered:
+            rename_hints.append("outbound_tag 在新结构中通常改为 outbound。")
+        extra = f" 可能修复：{' '.join(rename_hints)}" if rename_hints else ""
+        return f"检测到 unknown field：请对照 sing-box 1.14 文档检查字段是否重命名，或字段位置是否迁移。{extra}"
     if "cannot unmarshal" in lowered or "invalid character" in lowered:
         return "检测到 JSON 类型/格式错误：请检查字段类型（如 port 应为整数，数组字段应为数组）。"
     if "not found" in lowered and "rule" in lowered:
@@ -74,8 +80,7 @@ def run_validation(binary: Path, config: Path, config_directory: Path) -> tuple[
 
     command = [
         str(binary),
-        "format",
-        "-w",
+        "check",
         "-c",
         str(config),
         "-D",

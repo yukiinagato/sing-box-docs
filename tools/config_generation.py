@@ -3,27 +3,16 @@
 
 from __future__ import annotations
 
+import copy
 import warnings
 from typing import Any
 
-from tools.core.constants import DEFAULT_SHADOWSOCKS_METHOD, RECOMMENDED_BASE_CONFIG
+from tools.core.constants import DEFAULT_SHADOWSOCKS_METHOD, RECOMMENDED_BASE_CONFIG, ROOT_ALLOWED_KEYS
 from tools.core.linter import ProjectLinter
 
 SUPPORTED_INBOUND_TYPES = {"socks", "http", "mixed", "tun", "shadowsocks"}
 SUPPORTED_OUTBOUND_TYPES = {"direct", "block", "dns", "shadowsocks", "trojan"}
-ALLOWED_ROOT_KEYS = {
-    "log",
-    "dns",
-    "ntp",
-    "certificate",
-    "certificate_providers",
-    "endpoints",
-    "inbounds",
-    "outbounds",
-    "route",
-    "services",
-    "experimental",
-}
+ALLOWED_ROOT_KEYS = ROOT_ALLOWED_KEYS
 
 
 def _ensure_dict(value: Any, name: str) -> dict[str, Any]:
@@ -51,15 +40,27 @@ def _validate_port(value: Any, name: str) -> int:
     return port
 
 
-def validate_dns(dns: Any) -> None:
+def validate_dns(dns: Any, outbound_tags: set[str]) -> set[str]:
     dns_obj = _ensure_dict(dns, "dns")
     servers = _ensure_list(dns_obj.get("servers", []), "dns.servers")
+    dns_tags: set[str] = set()
     for idx, server in enumerate(servers):
         server_obj = _ensure_dict(server, f"dns.servers[{idx}]")
         if "type" in server_obj and not isinstance(server_obj["type"], str):
             raise ValueError(f"dns.servers[{idx}].type must be a string")
         if "address" in server_obj and not isinstance(server_obj["address"], str):
             raise ValueError(f"dns.servers[{idx}].address must be a string")
+        if "server" in server_obj and not isinstance(server_obj["server"], str):
+            raise ValueError(f"dns.servers[{idx}].server must be a string")
+        if "server_port" in server_obj:
+            _validate_port(server_obj["server_port"], f"dns.servers[{idx}].server_port")
+        if "tag" in server_obj:
+            if not isinstance(server_obj["tag"], str):
+                raise ValueError(f"dns.servers[{idx}].tag must be a string")
+            dns_tags.add(server_obj["tag"])
+        detour = server_obj.get("detour")
+        if detour is not None and (not isinstance(detour, str) or (outbound_tags and detour not in outbound_tags)):
+            raise ValueError(f"dns.servers[{idx}].detour references unknown tag: {detour}")
 
     rules = _ensure_list(dns_obj.get("rules", []), "dns.rules")
     for idx, rule in enumerate(rules):
@@ -67,6 +68,10 @@ def validate_dns(dns: Any) -> None:
         has_matcher = any(k in rule_obj for k in ("domain", "domain_suffix", "ip_cidr", "geoip"))
         if not has_matcher:
             raise ValueError(f"dns.rules[{idx}] must contain domain/domain_suffix/ip_cidr/geoip")
+        server = rule_obj.get("server")
+        if server is not None and (not isinstance(server, str) or (dns_tags and server not in dns_tags)):
+            raise ValueError(f"dns.rules[{idx}].server references unknown tag: {server}")
+    return dns_tags
 
 
 def validate_inbounds(inbounds: Any) -> None:
@@ -116,6 +121,9 @@ def validate_route(route: Any, outbound_tags: set[str]) -> None:
             raise ValueError(f"route.rules[{idx}].outbound must be a string")
         if out not in outbound_tags:
             raise ValueError(f"route.rules[{idx}].outbound references unknown tag: {out}")
+        action = rule_obj.get("action")
+        if action is not None and not isinstance(action, str):
+            raise ValueError(f"route.rules[{idx}].action must be a string")
 
 
 def validate_config(config: Any) -> None:
@@ -133,11 +141,31 @@ def validate_config(config: Any) -> None:
             raise ValueError(f"missing top-level field: {top}")
 
     _ensure_dict(cfg["log"], "log")
-    validate_dns(cfg["dns"])
     validate_inbounds(cfg["inbounds"])
     validate_outbounds(cfg["outbounds"])
     outbound_tags = {ob["tag"] for ob in cfg["outbounds"] if isinstance(ob, dict) and isinstance(ob.get("tag"), str)}
+    validate_dns(cfg["dns"], outbound_tags)
     validate_route(cfg["route"], outbound_tags)
+
+
+def _prune_defaults(value: Any, default: Any) -> Any:
+    if isinstance(value, dict) and isinstance(default, dict):
+        pruned: dict[str, Any] = {}
+        for key, current in value.items():
+            if key not in default:
+                pruned[key] = current
+                continue
+            candidate = _prune_defaults(current, default[key])
+            if candidate != default[key]:
+                pruned[key] = candidate
+        return pruned
+    if isinstance(value, list):
+        return [_prune_defaults(item, None) for item in value]
+    return value
+
+
+def remove_default_fields(config: dict[str, Any]) -> dict[str, Any]:
+    return _prune_defaults(copy.deepcopy(config), RECOMMENDED_BASE_CONFIG)
 
 
 def normalize_and_lint_config(config: dict[str, Any]) -> dict[str, Any]:
