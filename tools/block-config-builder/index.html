@@ -449,10 +449,15 @@ function renderLibrary() {
 
 function createBlock(moduleName, page, preset = {}) {
   const values = {};
+  const basePayload = {};
   for (const [field, spec] of Object.entries(page.fields || {})) {
     values[field] = inferDefault(spec);
   }
-  Object.assign(values, preset);
+  Object.entries(preset).forEach(([key, val]) => {
+    if (key === '__title') return;
+    basePayload[key] = val;
+    if (Object.hasOwn(values, key)) values[key] = val;
+  });
   return {
     id: crypto.randomUUID(),
     moduleName,
@@ -462,6 +467,7 @@ function createBlock(moduleName, page, preset = {}) {
     active: true,
     fields: page.fields || {},
     values,
+    basePayload,
   };
 }
 
@@ -908,7 +914,7 @@ function buildMergedConfig() {
 
   for (const block of state.blocksData) {
     if (!block.active) continue;
-    const payload = {};
+    const payload = { ...(block.basePayload || {}) };
 
     for (const [name, spec] of Object.entries(block.fields)) {
       const value = block.values[name];
