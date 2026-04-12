@@ -23,10 +23,13 @@
 - **即時合併引擎**
   - 只合併啟用中的 Block。
   - 自動映射到 `inbounds / outbounds / route / dns / endpoints / services` 等結構。
+  - 已完成 **sing-box 1.14 適配**：`dns` 與 `route` 強制輸出為對象結構（不再輸出舊版 array 形態）。
+  - 內建 legacy 遷移：`dns.servers[].address` 會在導出時轉換為 1.14 的 `type/server/server_port/path` 結構。
 - **校驗與錯誤提示**
   - 基礎型別檢查。
   - 必填欄位檢查。
   - object JSON 解析錯誤即時提示。
+  - 針對 Shadowsocks 2022 演算法增加密鑰長度校驗（base64 解碼後字節數必須符合方法要求）。
 - **導出操作**
   - 一鍵複製 JSON。
   - 下載 `config.json`。
@@ -72,3 +75,4 @@ npx serve .
 ## 備註
 
 - 若某些 schema JSON 格式有誤（例如無法被 `JSON.parse`），工具會在錯誤面板顯示載入失敗資訊，但不影響其他 schema 的使用。
+- 後端與測試共用 `tools/core/linter.py::ProjectLinter`，用於保存前最後一層邏輯審查（去除 `__page_id` 等污染欄位、修復 DNS/Route 結構、校驗 2022 密鑰）。

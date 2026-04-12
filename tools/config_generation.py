@@ -3,7 +3,11 @@
 
 from __future__ import annotations
 
+import warnings
 from typing import Any
+
+from tools.core.constants import DEFAULT_SHADOWSOCKS_METHOD, RECOMMENDED_BASE_CONFIG
+from tools.core.linter import ProjectLinter
 
 SUPPORTED_INBOUND_TYPES = {"socks", "http", "mixed", "tun", "shadowsocks"}
 SUPPORTED_OUTBOUND_TYPES = {"direct", "block", "dns", "shadowsocks", "trojan"}
@@ -116,12 +120,19 @@ def validate_config(config: Any) -> None:
     validate_route(cfg["route"], outbound_tags)
 
 
+def normalize_and_lint_config(config: dict[str, Any]) -> dict[str, Any]:
+    lint_result = ProjectLinter().lint(config)
+    for item in lint_result.warnings:
+        warnings.warn(item, RuntimeWarning, stacklevel=2)
+    return lint_result.config
+
+
 def generate_tunnel_pair(
     *,
     server_port: int,
     client_port: int,
     password: str,
-    method: str = "aes-128-gcm",
+    method: str = DEFAULT_SHADOWSOCKS_METHOD,
     server_host: str = "127.0.0.1",
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     """Generate a working server/client config pair for local E2E proxy testing."""
@@ -135,7 +146,7 @@ def generate_tunnel_pair(
         raise ValueError("server_host must be a non-empty string")
 
     server = {
-        "log": {"level": "info", "timestamp": True},
+        "log": dict(RECOMMENDED_BASE_CONFIG["log"]),
         "dns": {"servers": [{"type": "local", "tag": "local-dns"}], "rules": []},
         "inbounds": [
             {
@@ -152,7 +163,7 @@ def generate_tunnel_pair(
     }
 
     client = {
-        "log": {"level": "info", "timestamp": True},
+        "log": dict(RECOMMENDED_BASE_CONFIG["log"]),
         "dns": {
             "servers": [{"type": "local", "tag": "local-dns", "detour": "direct"}],
             "rules": [],
@@ -183,4 +194,5 @@ def generate_tunnel_pair(
             "final": "ss-out",
         },
     }
-    return server, client
+
+    return normalize_and_lint_config(server), normalize_and_lint_config(client)

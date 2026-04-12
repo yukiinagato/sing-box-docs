@@ -478,6 +478,71 @@ function validateField(value, spec) {
   return errs;
 }
 
+function validateShadowsocksKey(block, fieldName, value) {
+  if (fieldName !== 'password' || block.values.type !== 'shadowsocks') return [];
+  const method = String(block.values.method || '');
+  const expectedByMethod = {
+    '2022-blake3-aes-128-gcm': 16,
+    '2022-blake3-aes-256-gcm': 32,
+  };
+  const expected = expectedByMethod[method];
+  if (!expected) return [];
+  if (typeof value !== 'string' || !value.trim()) return ['Shadowsocks 2022 密鑰不可為空'];
+  try {
+    const normalized = value.replace(/-/g, '+').replace(/_/g, '/');
+    const decoded = atob(normalized);
+    if (decoded.length !== expected) {
+      return [`${method} 需要 base64 解碼後 ${expected} 字節，當前 ${decoded.length}`];
+    }
+  } catch {
+    return [`${method} 需要合法 base64 字符串`];
+  }
+  return [];
+}
+
+function migrateLegacy14(result, errors) {
+  if (Array.isArray(result.dns)) {
+    result.dns = { servers: result.dns, rules: [] };
+    errors.push('已自動將 dns 陣列遷移為 1.14 對象結構');
+  }
+  if (!result.dns || typeof result.dns !== 'object') {
+    result.dns = { servers: [], rules: [] };
+  }
+  if (!Array.isArray(result.dns.servers)) result.dns.servers = [];
+  if (!Array.isArray(result.dns.rules)) result.dns.rules = [];
+  result.dns.servers = result.dns.servers.map((server) => {
+    if (!server || typeof server !== 'object') return server;
+    if (typeof server.address === 'string' && !server.type) {
+      const migrated = { ...server };
+      const address = migrated.address;
+      if (address.startsWith('https://')) {
+        const url = new URL(address);
+        migrated.type = 'https';
+        migrated.server = url.hostname;
+        migrated.server_port = Number(url.port || 443);
+        migrated.path = url.pathname || '/dns-query';
+      } else {
+        migrated.type = 'udp';
+        migrated.server = address;
+        migrated.server_port = 53;
+      }
+      delete migrated.address;
+      errors.push('已自動將 legacy dns.address 遷移為 1.14 server/type 結構');
+      return migrated;
+    }
+    return server;
+  });
+
+  if (Array.isArray(result.route)) {
+    result.route = { rules: result.route };
+    errors.push('已自動將 route 陣列遷移為 1.14 對象結構');
+  }
+  if (!result.route || typeof result.route !== 'object') {
+    result.route = { rules: [] };
+  }
+  if (!Array.isArray(result.route.rules)) result.route.rules = [];
+}
+
 function buildMergedConfig() {
   const result = {
     log: {},
@@ -497,8 +562,10 @@ function buildMergedConfig() {
     for (const [name, spec] of Object.entries(block.fields)) {
       const value = block.values[name];
       const fieldErrors = validateField(value, spec);
-      if (fieldErrors.length) {
-        errors.push(`${block.title}.${name}: ${fieldErrors.join(', ')}`);
+      const keyErrors = validateShadowsocksKey(block, name, value);
+      const allErrors = [...fieldErrors, ...keyErrors];
+      if (allErrors.length) {
+        errors.push(`${block.title}.${name}: ${allErrors.join(', ')}`);
         continue;
       }
       if (value === '' || value === null || value === undefined) continue;
@@ -522,6 +589,7 @@ function buildMergedConfig() {
   for (const key of Object.keys(result)) {
     if (Array.isArray(result[key]) && result[key].length === 0) delete result[key];
   }
+  migrateLegacy14(result, errors);
 
   return { result, errors };
 }

@@ -9,6 +9,8 @@ import stat
 import subprocess
 from pathlib import Path
 
+from tools.core.linter import ProjectLinter
+
 
 def discover_binary(repo_root: Path) -> Path:
     env_bin = os.environ.get("SING_BOX_BIN")
@@ -66,6 +68,10 @@ def validate_rule_files(config_directory: Path) -> list[str]:
 
 
 def run_validation(binary: Path, config: Path, config_directory: Path) -> tuple[bool, str]:
+    config_json = json.loads(config.read_text(encoding="utf-8"))
+    lint_result = ProjectLinter().lint(config_json)
+    config.write_text(json.dumps(lint_result.config, ensure_ascii=False, indent=2), encoding="utf-8")
+
     command = [
         str(binary),
         "format",

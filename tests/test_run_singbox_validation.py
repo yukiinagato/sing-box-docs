@@ -36,7 +36,12 @@ def test_run_validation_failure(monkeypatch, tmp_path):
         return R()
 
     monkeypatch.setattr(validator, "run_cmd", fake_run)
-    ok, message = validator.run_validation(tmp_path / "sb", tmp_path / "c.json", tmp_path)
+    config = tmp_path / "c.json"
+    config.write_text(
+        '{\"log\":{\"level\":\"info\"},\"dns\":{\"servers\":[],\"rules\":[]},\"inbounds\":[],\"outbounds\":[],\"route\":{\"rules\":[]}}',
+        encoding="utf-8",
+    )
+    ok, message = validator.run_validation(tmp_path / "sb", config, tmp_path)
     assert not ok
     assert "$.dns.servers[0].address" in message
 

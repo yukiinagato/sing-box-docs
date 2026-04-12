@@ -1,6 +1,6 @@
 import pytest
 
-from tools.config_generation import generate_tunnel_pair, validate_config
+from tools.config_generation import generate_tunnel_pair, normalize_and_lint_config, validate_config
 
 
 def base_config():
@@ -96,3 +96,18 @@ def test_generate_tunnel_pair_produces_valid_shapes():
 def test_generate_tunnel_pair_rejects_invalid_port():
     with pytest.raises(ValueError, match="server_port must be in range"):
         generate_tunnel_pair(server_port=0, client_port=2080, password="x")
+
+
+def test_normalize_and_lint_config_warns_and_restructures():
+    dirty = {
+        "log": {"level": "info"},
+        "dns": [{"type": "local", "tag": "local"}],
+        "inbounds": [{"type": "mixed", "listen_port": 2080, "__page_id": "in"}],
+        "outbounds": [{"type": "direct", "tag": "direct"}],
+        "route": [{"ip_cidr": ["10.0.0.0/8"], "outbound": "direct"}],
+    }
+    with pytest.warns(RuntimeWarning):
+        normalized = normalize_and_lint_config(dirty)
+    assert isinstance(normalized["dns"], dict)
+    assert isinstance(normalized["route"], dict)
+    assert "__page_id" not in normalized["inbounds"][0]
