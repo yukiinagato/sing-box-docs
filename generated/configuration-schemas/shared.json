@@ -32,7 +32,7 @@
           "type": "integer",
           "required": false,
           "allowedValues": [
-            "account_key is required",
+            "account_key",
             "email",
             "external_account"
           ],
@@ -297,9 +297,9 @@
           "type": "string",
           "required": false,
           "allowedValues": [
-            "default (default): Connect to default network or networks specified in network_type sequentially.",
-            "fallback: Connect to default network or preferred networks specified in network_type concurrently, and try fallback networks when unavailable or timeout.",
-            "hybrid: Connect to all networks or networks specified in network_type concurrently."
+            "default",
+            "fallback",
+            "hybrid"
           ],
           "since": "1.11.0",
           "description": "Strategy for selecting network interfaces."
@@ -771,11 +771,11 @@
           "type": "string",
           "required": false,
           "allowedValues": [
-            "no (default)",
+            "no",
             "request",
             "require-and-verify",
-            "require-any",
             "verify-if-given"
+            "require-any",
           ],
           "dependencies": [
             {
