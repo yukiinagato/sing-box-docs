@@ -28,7 +28,8 @@
         "AdGuard Filter",
         "Hosts",
         "Simple"
-      ]
+      ],
+      "validations": []
     },
     {
       "page_id": "headless-rule",
@@ -124,6 +125,12 @@
         "network_type": {
           "type": "string",
           "required": false,
+          "allowedValues": [
+            "cellular",
+            "ethernet",
+            "other",
+            "wifi"
+          ],
           "since": "1.11.0",
           "description": "Match network type."
         },
@@ -186,7 +193,8 @@
         "Structure",
         "Default Fields",
         "Logical Fields"
-      ]
+      ],
+      "validations": []
     },
     {
       "page_id": "rule-set",
@@ -242,7 +250,8 @@
         "Local or Remote Fields",
         "Local Fields",
         "Remote Fields"
-      ]
+      ],
+      "validations": []
     },
     {
       "page_id": "source-format",
@@ -264,7 +273,8 @@
         "Structure",
         "Compile",
         "Fields"
-      ]
+      ],
+      "validations": []
     }
   ]
 }

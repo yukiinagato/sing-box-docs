@@ -27,7 +27,8 @@
       "section_titles": [
         "Structure",
         "Fields"
-      ]
+      ],
+      "validations": []
     },
     {
       "page_id": "dns",
@@ -42,6 +43,12 @@
         "strategy": {
           "type": "string",
           "required": false,
+          "allowedValues": [
+            "ipv4_only",
+            "ipv6_only",
+            "prefer_ipv4",
+            "prefer_ipv6"
+          ],
           "description": "One of prefer_ipv4 prefer_ipv6 ipv4_only ipv6_only."
         },
         "disable_cache": {
@@ -109,7 +116,8 @@
       "section_titles": [
         "Structure",
         "Fields"
-      ]
+      ],
+      "validations": []
     },
     {
       "page_id": "rule",
@@ -252,6 +260,12 @@
         "network_type": {
           "type": "string",
           "required": false,
+          "allowedValues": [
+            "cellular",
+            "ethernet",
+            "other",
+            "wifi"
+          ],
           "since": "1.11.0",
           "description": "Match network type."
         },
@@ -441,7 +455,8 @@
         "Legacy Address Filter Fields",
         "Response Match Fields",
         "Logical Fields"
-      ]
+      ],
+      "validations": []
     },
     {
       "page_id": "rule_action",
@@ -456,6 +471,12 @@
         "strategy": {
           "type": "string",
           "required": false,
+          "allowedValues": [
+            "ipv4_only",
+            "ipv6_only",
+            "prefer_ipv4",
+            "prefer_ipv6"
+          ],
           "since": "1.12.0",
           "deprecated": true,
           "description": "Set domain strategy for this query."
@@ -521,7 +542,8 @@
         "route-options",
         "reject",
         "predefined"
-      ]
+      ],
+      "validations": []
     },
     {
       "page_id": "dhcp",
@@ -538,7 +560,8 @@
         "Structure",
         "Fields",
         "Dial Fields"
-      ]
+      ],
+      "validations": []
     },
     {
       "page_id": "fakeip",
@@ -559,7 +582,8 @@
       "section_titles": [
         "Structure",
         "Fields"
-      ]
+      ],
+      "validations": []
     },
     {
       "page_id": "hosts",
@@ -581,7 +605,8 @@
         "Structure",
         "Fields",
         "Examples"
-      ]
+      ],
+      "validations": []
     },
     {
       "page_id": "http3",
@@ -618,7 +643,8 @@
         "Structure",
         "Fields",
         "Dial Fields"
-      ]
+      ],
+      "validations": []
     },
     {
       "page_id": "https",
@@ -655,7 +681,8 @@
         "Structure",
         "Fields",
         "Dial Fields"
-      ]
+      ],
+      "validations": []
     },
     {
       "page_id": "server",
@@ -675,7 +702,8 @@
       },
       "section_titles": [
         "Structure"
-      ]
+      ],
+      "validations": []
     },
     {
       "page_id": "legacy",
@@ -706,11 +734,23 @@
         "address_strategy": {
           "type": "string",
           "required": false,
+          "allowedValues": [
+            "ipv4_only",
+            "ipv6_only",
+            "prefer_ipv4",
+            "prefer_ipv6"
+          ],
           "description": "The domain strategy for resolving the domain name in the address."
         },
         "strategy": {
           "type": "string",
           "required": false,
+          "allowedValues": [
+            "ipv4_only",
+            "ipv6_only",
+            "prefer_ipv4",
+            "prefer_ipv6"
+          ],
           "description": "One of prefer_ipv4 prefer_ipv6 ipv4_only ipv6_only."
         },
         "detour": {
@@ -728,7 +768,8 @@
       "section_titles": [
         "Structure",
         "Fields"
-      ]
+      ],
+      "validations": []
     },
     {
       "page_id": "local",
@@ -746,7 +787,8 @@
         "Structure",
         "Fields",
         "Dial Fields"
-      ]
+      ],
+      "validations": []
     },
     {
       "page_id": "quic",
@@ -773,7 +815,8 @@
         "Structure",
         "Fields",
         "Dial Fields"
-      ]
+      ],
+      "validations": []
     },
     {
       "page_id": "resolved",
@@ -794,7 +837,8 @@
       "section_titles": [
         "Fields",
         "Examples"
-      ]
+      ],
+      "validations": []
     },
     {
       "page_id": "tailscale",
@@ -816,7 +860,8 @@
         "Structure",
         "Fields",
         "Examples"
-      ]
+      ],
+      "validations": []
     },
     {
       "page_id": "tcp",
@@ -838,7 +883,8 @@
         "Structure",
         "Fields",
         "Dial Fields"
-      ]
+      ],
+      "validations": []
     },
     {
       "page_id": "tls",
@@ -865,7 +911,8 @@
         "Structure",
         "Fields",
         "Dial Fields"
-      ]
+      ],
+      "validations": []
     },
     {
       "page_id": "udp",
@@ -887,7 +934,8 @@
         "Structure",
         "Fields",
         "Dial Fields"
-      ]
+      ],
+      "validations": []
     }
   ]
 }

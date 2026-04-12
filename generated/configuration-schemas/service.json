@@ -55,7 +55,8 @@
         "Listen Fields",
         "Fields",
         "Example"
-      ]
+      ],
+      "validations": []
     },
     {
       "page_id": "derp",
@@ -112,7 +113,8 @@
         "Structure",
         "Listen Fields",
         "Fields"
-      ]
+      ],
+      "validations": []
     },
     {
       "page_id": "service",
@@ -128,7 +130,8 @@
       "section_titles": [
         "Structure",
         "Fields"
-      ]
+      ],
+      "validations": []
     },
     {
       "page_id": "ocm",
@@ -183,7 +186,8 @@
         "Fields",
         "Example",
         "Example with Authentication"
-      ]
+      ],
+      "validations": []
     },
     {
       "page_id": "resolved",
@@ -205,7 +209,8 @@
         "Structure",
         "Listen Fields",
         "Fields"
-      ]
+      ],
+      "validations": []
     },
     {
       "page_id": "ssm-api",
@@ -232,7 +237,8 @@
         "Structure",
         "Listen Fields",
         "Fields"
-      ]
+      ],
+      "validations": []
     }
   ]
 }

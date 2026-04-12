@@ -51,7 +51,8 @@
         "Structure",
         "Fields",
         "Dial Fields"
-      ]
+      ],
+      "validations": []
     },
     {
       "page_id": "block",
@@ -61,7 +62,8 @@
       "section_titles": [
         "Structure",
         "Fields"
-      ]
+      ],
+      "validations": []
     },
     {
       "page_id": "direct",
@@ -85,7 +87,8 @@
         "Structure",
         "Fields",
         "Dial Fields"
-      ]
+      ],
+      "validations": []
     },
     {
       "page_id": "dns",
@@ -95,7 +98,8 @@
       "section_titles": [
         "Structure",
         "Fields"
-      ]
+      ],
+      "validations": []
     },
     {
       "page_id": "http",
@@ -142,7 +146,8 @@
         "Structure",
         "Fields",
         "Dial Fields"
-      ]
+      ],
+      "validations": []
     },
     {
       "page_id": "hysteria",
@@ -214,6 +219,10 @@
         "network": {
           "type": "string",
           "required": false,
+          "allowedValues": [
+            "tcp",
+            "udp"
+          ],
           "description": "Enabled network One of tcp udp."
         },
         "tls": {
@@ -226,7 +235,8 @@
         "Structure",
         "Fields",
         "Dial Fields"
-      ]
+      ],
+      "validations": []
     },
     {
       "page_id": "hysteria2",
@@ -290,6 +300,10 @@
         "network": {
           "type": "string",
           "required": false,
+          "allowedValues": [
+            "tcp",
+            "udp"
+          ],
           "description": "Enabled network One of tcp udp."
         },
         "tls": {
@@ -300,6 +314,11 @@
         "bbr_profile": {
           "type": "string",
           "required": false,
+          "allowedValues": [
+            "aggressive",
+            "conservative",
+            "standard"
+          ],
           "since": "1.14.0",
           "description": "standard is used by default."
         },
@@ -313,7 +332,8 @@
         "Structure",
         "Fields",
         "Dial Fields"
-      ]
+      ],
+      "validations": []
     },
     {
       "page_id": "outbound",
@@ -335,7 +355,8 @@
         "Structure",
         "Fields",
         "Features"
-      ]
+      ],
+      "validations": []
     },
     {
       "page_id": "naive",
@@ -397,7 +418,8 @@
         "Structure",
         "Fields",
         "Dial Fields"
-      ]
+      ],
+      "validations": []
     },
     {
       "page_id": "selector",
@@ -423,7 +445,8 @@
       "section_titles": [
         "Structure",
         "Fields"
-      ]
+      ],
+      "validations": []
     },
     {
       "page_id": "shadowsocks",
@@ -463,6 +486,10 @@
         "network": {
           "type": "string",
           "required": false,
+          "allowedValues": [
+            "tcp",
+            "udp"
+          ],
           "description": "Enabled network One of tcp udp."
         },
         "udp_over_tcp": {
@@ -486,7 +513,8 @@
         "Structure",
         "Fields",
         "Dial Fields"
-      ]
+      ],
+      "validations": []
     },
     {
       "page_id": "shadowtls",
@@ -523,7 +551,8 @@
         "Structure",
         "Fields",
         "Dial Fields"
-      ]
+      ],
+      "validations": []
     },
     {
       "page_id": "socks",
@@ -543,6 +572,11 @@
         "version": {
           "type": "string",
           "required": false,
+          "allowedValues": [
+            "4",
+            "4a",
+            "5"
+          ],
           "description": "The SOCKS version, one of 4 4a 5."
         },
         "username": {
@@ -558,6 +592,10 @@
         "network": {
           "type": "string",
           "required": false,
+          "allowedValues": [
+            "tcp",
+            "udp"
+          ],
           "description": "Enabled network One of tcp udp."
         },
         "udp_over_tcp": {
@@ -570,7 +608,8 @@
         "Structure",
         "Fields",
         "Dial Fields"
-      ]
+      ],
+      "validations": []
     },
     {
       "page_id": "ssh",
@@ -632,7 +671,8 @@
         "Structure",
         "Fields",
         "Dial Fields"
-      ]
+      ],
+      "validations": []
     },
     {
       "page_id": "tor",
@@ -664,7 +704,8 @@
         "Structure",
         "Fields",
         "Dial Fields"
-      ]
+      ],
+      "validations": []
     },
     {
       "page_id": "trojan",
@@ -689,6 +730,10 @@
         "network": {
           "type": "string",
           "required": false,
+          "allowedValues": [
+            "tcp",
+            "udp"
+          ],
           "description": "Enabled network One of tcp udp."
         },
         "tls": {
@@ -711,7 +756,8 @@
         "Structure",
         "Fields",
         "Dial Fields"
-      ]
+      ],
+      "validations": []
     },
     {
       "page_id": "tuic",
@@ -741,6 +787,11 @@
         "congestion_control": {
           "type": "string",
           "required": false,
+          "allowedValues": [
+            "bbr_cubic",
+            "cubic",
+            "new_reno"
+          ],
           "description": "QUIC congestion control algorithm One of: cubic, new_reno, bbr cubic is used by default."
         },
         "udp_relay_mode": {
@@ -768,6 +819,10 @@
         "network": {
           "type": "string",
           "required": false,
+          "allowedValues": [
+            "tcp",
+            "udp"
+          ],
           "description": "Enabled network One of tcp udp."
         },
         "tls": {
@@ -780,7 +835,8 @@
         "Structure",
         "Fields",
         "Dial Fields"
-      ]
+      ],
+      "validations": []
     },
     {
       "page_id": "urltest",
@@ -821,7 +877,8 @@
       "section_titles": [
         "Structure",
         "Fields"
-      ]
+      ],
+      "validations": []
     },
     {
       "page_id": "vless",
@@ -854,6 +911,10 @@
         "network": {
           "type": "string",
           "required": false,
+          "allowedValues": [
+            "tcp",
+            "udp"
+          ],
           "description": "Enabled network One of tcp udp."
         },
         "tls": {
@@ -881,7 +942,8 @@
         "Structure",
         "Fields",
         "Dial Fields"
-      ]
+      ],
+      "validations": []
     },
     {
       "page_id": "vmess",
@@ -926,6 +988,10 @@
         "network": {
           "type": "string",
           "required": false,
+          "allowedValues": [
+            "tcp",
+            "udp"
+          ],
           "description": "Enabled network One of tcp udp."
         },
         "tls": {
@@ -953,7 +1019,8 @@
         "Structure",
         "Fields",
         "Dial Fields"
-      ]
+      ],
+      "validations": []
     },
     {
       "page_id": "wireguard",
@@ -1064,6 +1131,10 @@
         "network": {
           "type": "string",
           "required": false,
+          "allowedValues": [
+            "tcp",
+            "udp"
+          ],
           "description": "Enabled network One of tcp udp."
         }
       },
@@ -1071,7 +1142,8 @@
         "Structure",
         "Fields",
         "Dial Fields"
-      ]
+      ],
+      "validations": []
     }
   ]
 }

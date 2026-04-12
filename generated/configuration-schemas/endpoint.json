@@ -17,7 +17,8 @@
       "section_titles": [
         "Structure",
         "Fields"
-      ]
+      ],
+      "validations": []
     },
     {
       "page_id": "tailscale",
@@ -117,7 +118,8 @@
         "Structure",
         "Fields",
         "Dial Fields"
-      ]
+      ],
+      "validations": []
     },
     {
       "page_id": "wireguard",
@@ -210,7 +212,8 @@
         "Structure",
         "Fields",
         "Dial Fields"
-      ]
+      ],
+      "validations": []
     }
   ]
 }

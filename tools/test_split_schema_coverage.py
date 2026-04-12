@@ -32,21 +32,49 @@ def collect_expected_h4():
     return expected
 
 
+def collect_enum_expectations():
+    """Collect fields whose source prose indicates explicit enum values."""
+    expected = {}
+    for html_file in sorted(CONFIG.glob("**/index.html")):
+        rel = str(html_file.relative_to(ROOT))
+        if rel == "configuration/index.html":
+            continue
+        a = article(html_file)
+        h4_matches = list(re.finditer(r'<h4 id="[^"]+">(.*?)</h4>', a, re.S))
+        page_expect = set()
+        for i, m in enumerate(h4_matches):
+            field = clean_html(m.group(1))
+            start = m.end()
+            end = h4_matches[i + 1].start() if i + 1 < len(h4_matches) else len(a)
+            block = clean_html(a[start:end])
+            if "Available values" in block or re.search(r"One of:?\s+[^\.\n]+", block, re.I):
+                page_expect.add(field)
+        expected[rel] = page_expect
+    return expected
+
+
 def collect_actual_fields():
     actual = {}
+    actual_allowed = {}
     for jf in sorted(SCHEMA_DIR.glob("*.json")):
         data = json.loads(jf.read_text(encoding="utf-8"))
         for page in data.get("pages", []):
             src = page.get("source_path")
             if not src:
                 continue
-            actual[src] = set(page.get("fields", {}).keys())
-    return actual
+            fields = page.get("fields", {})
+            actual[src] = set(fields.keys())
+            actual_allowed[src] = {
+                k for k, v in fields.items()
+                if isinstance(v, dict) and isinstance(v.get("allowedValues"), list) and len(v["allowedValues"]) > 0
+            }
+    return actual, actual_allowed
 
 
 def main():
     expected = collect_expected_h4()
-    actual = collect_actual_fields()
+    enum_expected = collect_enum_expectations()
+    actual, actual_allowed = collect_actual_fields()
 
     total = 0
     covered = 0
@@ -79,7 +107,19 @@ def main():
         for src, f in missing_items[:200]:
             print(f" - {src}: {f}")
 
-    if coverage < 100.0 or missing_pages or missing_items:
+    enum_missing = []
+    for src, fields in enum_expected.items():
+        available_fields = actual_allowed.get(src, set())
+        for f in fields:
+            if f not in available_fields:
+                enum_missing.append((src, f))
+
+    if enum_missing:
+        print("missing allowedValues for enum-like prose:")
+        for src, f in enum_missing[:200]:
+            print(f" - {src}: {f}")
+
+    if coverage < 100.0 or missing_pages or missing_items or enum_missing:
         raise SystemExit(1)
 
 

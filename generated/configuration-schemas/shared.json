@@ -31,6 +31,11 @@
         "provider": {
           "type": "integer",
           "required": false,
+          "allowedValues": [
+            "account_key",
+            "email",
+            "external_account"
+          ],
           "description": "The ACME CA provider to use."
         },
         "account_key": {
@@ -94,7 +99,8 @@
       "section_titles": [
         "Structure",
         "Fields"
-      ]
+      ],
+      "validations": []
     },
     {
       "page_id": "cloudflare-origin-ca",
@@ -141,6 +147,15 @@
         "requested_validity": {
           "type": "integer",
           "required": false,
+          "allowedValues": [
+            "1095",
+            "30",
+            "365",
+            "5475",
+            "7",
+            "730",
+            "90"
+          ],
           "description": "The requested certificate validity in days."
         },
         "detour": {
@@ -152,7 +167,8 @@
       "section_titles": [
         "Structure",
         "Fields"
-      ]
+      ],
+      "validations": []
     },
     {
       "page_id": "certificate-provider",
@@ -168,7 +184,8 @@
       "section_titles": [
         "Structure",
         "Fields"
-      ]
+      ],
+      "validations": []
     },
     {
       "page_id": "tailscale",
@@ -184,7 +201,8 @@
       "section_titles": [
         "Structure",
         "Fields"
-      ]
+      ],
+      "validations": []
     },
     {
       "page_id": "dial",
@@ -279,9 +297,9 @@
           "type": "string",
           "required": false,
           "allowedValues": [
-            "default (default): Connect to default network or networks specified in network_type sequentially.",
-            "hybrid: Connect to all networks or networks specified in network_type concurrently.",
-            "fallback: Connect to default network or preferred networks specified in network_type concurrently, and try fallback networks when unavailable or timeout."
+            "default",
+            "fallback",
+            "hybrid"
           ],
           "since": "1.11.0",
           "description": "Strategy for selecting network interfaces."
@@ -289,6 +307,12 @@
         "network_type": {
           "type": "string",
           "required": false,
+          "allowedValues": [
+            "cellular",
+            "ethernet",
+            "other",
+            "wifi"
+          ],
           "since": "1.11.0",
           "description": "Network types to use when using default or hybrid network strategy or preferred network types to use when using fallback network strategy."
         },
@@ -307,6 +331,12 @@
         "domain_strategy": {
           "type": "string",
           "required": false,
+          "allowedValues": [
+            "ipv4_only",
+            "ipv6_only",
+            "prefer_ipv4",
+            "prefer_ipv6"
+          ],
           "deprecated": true,
           "description": "Deprecated in sing-box 1.12.0 domain_strategy is deprecated and will be removed in sing-box 1.14.0, check Migration."
         }
@@ -314,7 +344,8 @@
       "section_titles": [
         "Structure",
         "Fields"
-      ]
+      ],
+      "validations": []
     },
     {
       "page_id": "dns01_challenge",
@@ -375,7 +406,8 @@
         "Structure",
         "Fields",
         "Provider Fields"
-      ]
+      ],
+      "validations": []
     },
     {
       "page_id": "listen",
@@ -476,6 +508,12 @@
         "domain_strategy": {
           "type": "string",
           "required": false,
+          "allowedValues": [
+            "ipv4_only",
+            "ipv6_only",
+            "prefer_ipv4",
+            "prefer_ipv6"
+          ],
           "deprecated": true,
           "description": "Deprecated in sing-box 1.11.0 Inbound fields are deprecated and will be removed in sing-box 1.13.0, check Migration."
         },
@@ -489,7 +527,8 @@
       "section_titles": [
         "Structure",
         "Fields"
-      ]
+      ],
+      "validations": []
     },
     {
       "page_id": "multiplex",
@@ -559,7 +598,8 @@
         "Outbound",
         "Inbound Fields",
         "Outbound Fields"
-      ]
+      ],
+      "validations": []
     },
     {
       "page_id": "neighbor",
@@ -568,7 +608,8 @@
       "fields": {},
       "section_titles": [
         "Hostname Visibility"
-      ]
+      ],
+      "validations": []
     },
     {
       "page_id": "pre-match",
@@ -595,7 +636,8 @@
       "section_titles": [
         "How it works",
         "Supported actions"
-      ]
+      ],
+      "validations": []
     },
     {
       "page_id": "tcp-brutal",
@@ -617,7 +659,8 @@
         "Server Requirements",
         "Structure",
         "Fields"
-      ]
+      ],
+      "validations": []
     },
     {
       "page_id": "tls",
@@ -667,6 +710,13 @@
         "curve_preferences": {
           "type": "array_object",
           "required": false,
+          "allowedValues": [
+            "P256",
+            "P384",
+            "P521",
+            "X25519",
+            "X25519MLKEM768"
+          ],
           "since": "1.13.0",
           "description": "The order of the list is ignored, and key exchange mechanisms are chosen from this list using an internal preference order by Golang."
         },
@@ -721,16 +771,32 @@
           "type": "string",
           "required": false,
           "allowedValues": [
-            "no (default)",
+            "no",
             "request",
+            "require-and-verify",
+            "verify-if-given"
             "require-any",
-            "verify-if-given",
-            "require-and-verify"
           ],
           "dependencies": [
             {
               "type": "required_if",
               "expression": "this option is set to verify-if-given, or require-and-verify"
+            },
+            {
+              "type": "conditional_exactly_one_required",
+              "when": {
+                "field": "client_authentication",
+                "operator": "in",
+                "value": [
+                  "verify-if-given",
+                  "require-and-verify"
+                ]
+              },
+              "fields": [
+                "client_certificate",
+                "client_certificate_path",
+                "client_certificate_public_key_sha256"
+              ]
             }
           ],
           "since": "1.13.0"
@@ -909,6 +975,26 @@
         "ECH Fields",
         "ACME Fields",
         "Reality Fields"
+      ],
+      "validations": [
+        {
+          "type": "conditional_one_of_required",
+          "when": {
+            "field": "client_authentication",
+            "operator": "in",
+            "value": [
+              "verify-if-given",
+              "require-and-verify"
+            ]
+          },
+          "oneOfRequired": [
+            "client_certificate",
+            "client_certificate_path",
+            "client_certificate_public_key_sha256"
+          ],
+          "exactlyOne": true,
+          "field": "client_authentication"
+        }
       ]
     },
     {
@@ -947,7 +1033,8 @@
         "Fields",
         "Application support",
         "Protocol details"
-      ]
+      ],
+      "validations": []
     },
     {
       "page_id": "v2ray-transport",
@@ -1012,7 +1099,8 @@
         "QUIC",
         "gRPC",
         "HTTPUpgrade"
-      ]
+      ],
+      "validations": []
     },
     {
       "page_id": "wifi-state",
@@ -1023,7 +1111,8 @@
         "Platform Support",
         "Linux",
         "Windows"
-      ]
+      ],
+      "validations": []
     }
   ]
 }

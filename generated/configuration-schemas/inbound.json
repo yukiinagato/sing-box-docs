@@ -28,7 +28,8 @@
         "Structure",
         "Listen Fields",
         "Fields"
-      ]
+      ],
+      "validations": []
     },
     {
       "page_id": "cloudflared",
@@ -48,6 +49,10 @@
         "protocol": {
           "type": "string",
           "required": false,
+          "allowedValues": [
+            "http2",
+            "quic"
+          ],
           "description": "Transport protocol for edge connections."
         },
         "post_quantum": {
@@ -58,11 +63,21 @@
         "edge_ip_version": {
           "type": "string",
           "required": false,
+          "allowedValues": [
+            "(automatic)",
+            "0",
+            "4",
+            "6"
+          ],
           "description": "IP version used when connecting to the Cloudflare edge."
         },
         "datagram_version": {
           "type": "string",
           "required": false,
+          "allowedValues": [
+            "v2",
+            "v3"
+          ],
           "description": "Datagram protocol version used for UDP proxying over QUIC."
         },
         "grace_period": {
@@ -95,7 +110,8 @@
       "section_titles": [
         "Structure",
         "Fields"
-      ]
+      ],
+      "validations": []
     },
     {
       "page_id": "direct",
@@ -105,6 +121,10 @@
         "network": {
           "type": "array_object",
           "required": false,
+          "allowedValues": [
+            "tcp",
+            "udp"
+          ],
           "description": "Listen network, one of tcp udp."
         },
         "override_address": {
@@ -122,7 +142,8 @@
         "Structure",
         "Listen Fields",
         "Fields"
-      ]
+      ],
+      "validations": []
     },
     {
       "page_id": "http",
@@ -155,7 +176,8 @@
         "Structure",
         "Listen Fields",
         "Fields"
-      ]
+      ],
+      "validations": []
     },
     {
       "page_id": "hysteria",
@@ -222,7 +244,8 @@
         "Structure",
         "Listen Fields",
         "Fields"
-      ]
+      ],
+      "validations": []
     },
     {
       "page_id": "hysteria2",
@@ -331,6 +354,11 @@
         "bbr_profile": {
           "type": "string",
           "required": false,
+          "allowedValues": [
+            "aggressive",
+            "conservative",
+            "standard"
+          ],
           "since": "1.14.0",
           "description": "standard is used by default."
         },
@@ -344,7 +372,8 @@
         "Structure",
         "Listen Fields",
         "Fields"
-      ]
+      ],
+      "validations": []
     },
     {
       "page_id": "inbound",
@@ -360,7 +389,8 @@
       "section_titles": [
         "Structure",
         "Fields"
-      ]
+      ],
+      "validations": []
     },
     {
       "page_id": "mixed",
@@ -388,7 +418,8 @@
         "Structure",
         "Listen Fields",
         "Fields"
-      ]
+      ],
+      "validations": []
     },
     {
       "page_id": "naive",
@@ -398,6 +429,10 @@
         "network": {
           "type": "array_object",
           "required": false,
+          "allowedValues": [
+            "tcp",
+            "udp"
+          ],
           "description": "Listen network, one of tcp udp."
         },
         "users": {
@@ -421,7 +456,8 @@
         "Structure",
         "Listen Fields",
         "Fields"
-      ]
+      ],
+      "validations": []
     },
     {
       "page_id": "redirect",
@@ -431,7 +467,8 @@
       "section_titles": [
         "Structure",
         "Listen Fields"
-      ]
+      ],
+      "validations": []
     },
     {
       "page_id": "shadowsocks",
@@ -441,6 +478,10 @@
         "network": {
           "type": "array_object",
           "required": false,
+          "allowedValues": [
+            "tcp",
+            "udp"
+          ],
           "description": "Listen network, one of tcp udp."
         },
         "method": {
@@ -470,7 +511,8 @@
         "Relay Structure",
         "Listen Fields",
         "Fields"
-      ]
+      ],
+      "validations": []
     },
     {
       "page_id": "shadowtls",
@@ -516,6 +558,11 @@
         "wildcard_sni": {
           "type": "string",
           "required": false,
+          "allowedValues": [
+            "all: All connections will have their destination overwritten to (servername):443",
+            "authed: Authenticated connections will have their destination overwritten to (servername):443",
+            "off: (default) Disabled."
+          ],
           "since": "1.12.0",
           "description": "authed: Authenticated connections will have their destination overwritten to (servername):443 all: All connections will have their destination overwritten to (servername):443 Additionally, connections matching handshake_for_server_name are not affected."
         }
@@ -524,7 +571,8 @@
         "Structure",
         "Listen Fields",
         "Fields"
-      ]
+      ],
+      "validations": []
     },
     {
       "page_id": "socks",
@@ -547,7 +595,8 @@
         "Structure",
         "Listen Fields",
         "Fields"
-      ]
+      ],
+      "validations": []
     },
     {
       "page_id": "tproxy",
@@ -557,6 +606,10 @@
         "network": {
           "type": "array_object",
           "required": false,
+          "allowedValues": [
+            "tcp",
+            "udp"
+          ],
           "description": "Listen network, one of tcp udp."
         }
       },
@@ -564,7 +617,8 @@
         "Structure",
         "Listen Fields",
         "Fields"
-      ]
+      ],
+      "validations": []
     },
     {
       "page_id": "trojan",
@@ -606,7 +660,8 @@
         "Structure",
         "Listen Fields",
         "Fields"
-      ]
+      ],
+      "validations": []
     },
     {
       "page_id": "tuic",
@@ -631,6 +686,11 @@
         "congestion_control": {
           "type": "string",
           "required": false,
+          "allowedValues": [
+            "bbr cubic is used by default",
+            "cubic",
+            "new_reno"
+          ],
           "description": "QUIC congestion control algorithm One of: cubic, new_reno, bbr cubic is used by default."
         },
         "auth_timeout": {
@@ -658,7 +718,8 @@
         "Structure",
         "Listen Fields",
         "Fields"
-      ]
+      ],
+      "validations": []
     },
     {
       "page_id": "tun",
@@ -963,7 +1024,8 @@
         "Structure",
         "Fields",
         "Listen Fields"
-      ]
+      ],
+      "validations": []
     },
     {
       "page_id": "vless",
@@ -1008,7 +1070,8 @@
         "Structure",
         "Listen Fields",
         "Fields"
-      ]
+      ],
+      "validations": []
     },
     {
       "page_id": "vmess",
@@ -1040,7 +1103,8 @@
         "Structure",
         "Listen Fields",
         "Fields"
-      ]
+      ],
+      "validations": []
     }
   ]
 }

@@ -27,7 +27,8 @@
       "section_titles": [
         "Structure",
         "Fields"
-      ]
+      ],
+      "validations": []
     },
     {
       "page_id": "geosite",
@@ -53,7 +54,8 @@
       "section_titles": [
         "Structure",
         "Fields"
-      ]
+      ],
+      "validations": []
     },
     {
       "page_id": "route",
@@ -143,7 +145,8 @@
       "section_titles": [
         "Structure",
         "Fields"
-      ]
+      ],
+      "validations": []
     },
     {
       "page_id": "rule",
@@ -303,6 +306,12 @@
         "network_type": {
           "type": "string",
           "required": false,
+          "allowedValues": [
+            "cellular",
+            "ethernet",
+            "other",
+            "wifi"
+          ],
           "since": "1.11.0",
           "description": "Match network type."
         },
@@ -417,7 +426,8 @@
         "Structure",
         "Default Fields",
         "Logical Fields"
-      ]
+      ],
+      "validations": []
     },
     {
       "page_id": "rule_action",
@@ -560,7 +570,8 @@
         "route-options",
         "sniff",
         "resolve"
-      ]
+      ],
+      "validations": []
     },
     {
       "page_id": "sniff",
@@ -573,7 +584,8 @@
           "description": "Network Protocol Domain Name Client TCP http Host / TCP tls Server Name / UDP quic Server Name QUIC Client Type UDP stun / / TCP/UDP dns / / TCP/UDP bittorrent / / UDP dtls / / TCP ssh / SSH Client Name TCP rdp / / UDP ntp / / QUIC Client Type Chromium/Cronet chromium Safari/Apple Network API safari Firefox / uquic firefox firefox quic-go / uquic chrome quic-go"
         }
       },
-      "section_titles": []
+      "section_titles": [],
+      "validations": []
     }
   ]
 }

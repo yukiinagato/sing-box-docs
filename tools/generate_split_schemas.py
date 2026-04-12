@@ -61,6 +61,80 @@ def parse_dependencies(text: str):
     return deps
 
 
+def parse_one_of_values(text: str):
+    values = []
+    # Pattern examples:
+    # - One of: trace debug info warn error fatal panic.
+    # - One of prefer_ipv4 prefer_ipv6 ipv4_only ipv6_only.
+    # - One of `a`, `b`, `c`.
+    for m in re.findall(r"One of:?\s*([^\.]+)", text, re.I):
+        if "is required if" in m.lower():
+            # this is a conditional requirement sentence, not enum candidates
+            continue
+        raw = m.strip().strip("`")
+        code_values = [x.strip(" `") for x in re.findall(r"`([^`]+)`", raw)]
+        if code_values:
+            parts = code_values
+        # support comma-separated and space-separated enumerations
+        elif "," in raw:
+            parts = [x.strip(" `") for x in raw.split(",")]
+        else:
+            parts = [x.strip(" `") for x in raw.split()]
+        for p in parts:
+            p = re.sub(r"^(or|and)\s+", "", p, flags=re.I).strip(" `")
+            if p and p.lower() not in {"or", "and"}:
+                values.append(p)
+    return values
+
+
+def parse_complex_requirements(text: str):
+    """Extract structured conditional requirements from prose.
+
+    Example:
+    One of client_certificate, client_certificate_path, or
+    client_certificate_public_key_sha256 is required if this option is set to
+    verify-if-given, or require-and-verify.
+    """
+    rules = []
+    pattern = re.compile(
+        r"One of\s+(.+?)\s+is required if this option is set to\s+([^\.]+)",
+        re.I,
+    )
+    for m in pattern.finditer(text):
+        lhs, rhs = m.group(1), m.group(2)
+
+        def _normalize_token(token: str) -> str:
+            token = token.strip(" `")
+            token = re.sub(r"^(or|and)\s+", "", token, flags=re.I)
+            return token.strip(" `")
+
+        fields = [
+            _normalize_token(f)
+            for f in re.split(r",\s*|\s+or\s+|\s+and\s+", lhs)
+            if _normalize_token(f)
+        ]
+        values = [
+            _normalize_token(v)
+            for v in re.split(r",\s*|\s+or\s+|\s+and\s+", rhs)
+            if _normalize_token(v)
+        ]
+
+        if fields and values:
+            rules.append(
+                {
+                    "type": "conditional_one_of_required",
+                    "when": {
+                        "field": "this",
+                        "operator": "in",
+                        "value": values,
+                    },
+                    "oneOfRequired": fields,
+                    "exactlyOne": True,
+                }
+            )
+    return rules
+
+
 def parse_page(path: Path):
     article = read_article(path)
     title_m = re.search(r"<h1[^>]*>(.*?)</h1>", article, re.S)
@@ -71,7 +145,8 @@ def parse_page(path: Path):
         "source_path": str(path.relative_to(ROOT)),
         "title": title,
         "fields": {},
-        "section_titles": []
+        "section_titles": [],
+        "validations": [],
     }
 
     # capture section titles h3 for traceability
@@ -92,14 +167,31 @@ def parse_page(path: Path):
         }
 
         av = []
-        for m_av in re.finditer(r"Available values:\s*</p>\s*<ul>(.*?)</ul>", block, re.S):
+        # Pattern A: list style after paragraph: "Available values:" + <ul>...</ul>
+        for m_av in re.finditer(r"Available values(?: are|, also the default list)?:\s*</p>\s*<ul>(.*?)</ul>", block, re.S):
             vals = re.findall(r"<li>(.*?)</li>", m_av.group(1), re.S)
             for v in vals:
                 cv = clean_html(v)
                 if cv:
                     av.append(cv)
+        # Pattern B: inline paragraph: "Available values: <code>a</code>, <code>b</code> ..."
+        for m_av_inline in re.finditer(r"Available values(?: are|, also the default list)?:\s*(.*?)</p>", block, re.S):
+            inline = m_av_inline.group(1)
+            code_vals = [clean_html(v) for v in re.findall(r"<code>(.*?)</code>", inline, re.S)]
+            if code_vals:
+                av.extend([v for v in code_vals if v])
+            else:
+                raw_inline = clean_html(inline)
+                for part in re.split(r",|\s+and\s+", raw_inline):
+                    p = part.strip(" `")
+                    if p:
+                        av.append(p)
         if av:
-            data["allowedValues"] = av
+            data["allowedValues"] = sorted(set(av))
+
+        extra_allowed = parse_one_of_values(text)
+        if extra_allowed:
+            data["allowedValues"] = sorted(set(data.get("allowedValues", []) + extra_allowed))
 
         dm = re.search(r"(?:Default(?:s to| value)?):\s*([^\.]+)", text, re.I)
         if dm:
@@ -114,6 +206,23 @@ def parse_page(path: Path):
         deps = parse_dependencies(text)
         if deps:
             data["dependencies"] = deps
+
+        complex_rules = parse_complex_requirements(text)
+        if complex_rules:
+            # bind rule to current field ("this" => current field name)
+            for rule in complex_rules:
+                rule["field"] = field
+                rule["when"]["field"] = field
+                page["validations"].append(rule)
+
+                # expose dependency shortcut at field level as well
+                data.setdefault("dependencies", []).append(
+                    {
+                        "type": "conditional_exactly_one_required",
+                        "when": rule["when"],
+                        "fields": rule["oneOfRequired"],
+                    }
+                )
 
         sm = re.findall(r"Since sing-box\s+([0-9.]+)", text)
         if sm:

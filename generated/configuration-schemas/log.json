@@ -16,6 +16,15 @@
         "level": {
           "type": "string",
           "required": false,
+          "allowedValues": [
+            "debug",
+            "error",
+            "fatal",
+            "info",
+            "panic",
+            "trace",
+            "warn"
+          ],
           "description": "Log level."
         },
         "output": {
@@ -32,7 +41,8 @@
       "section_titles": [
         "Structure",
         "Fields"
-      ]
+      ],
+      "validations": []
     }
   ]
 }
