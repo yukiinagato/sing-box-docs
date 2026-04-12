@@ -367,6 +367,13 @@ const KNOWN_SCHEMA_FILES = [
   'certificate.json','dns.json','endpoint.json','experimental.json','inbound.json','log.json','ntp.json','outbound.json','route.json','rule-set.json','service.json','shared.json'
 ];
 
+// Synced from tools/core/constants.py ENUM_FIELD_OPTIONS.
+const ENUM_FIELD_OPTIONS = {
+  method: ['none', 'aes-128-gcm', 'aes-256-gcm', 'chacha20-ietf-poly1305', '2022-blake3-aes-128-gcm', '2022-blake3-aes-256-gcm'],
+  protocol: ['dns', 'http', 'tls', 'quic', 'stun', 'bittorrent'],
+  level: ['trace', 'debug', 'info', 'warn', 'error', 'fatal', 'panic'],
+};
+
 const BLOCK_TYPE_REGISTRY = {
   'socks-in': { moduleName: 'inbound', pageId: 'socks', title: 'SOCKS Inbound', preset: { type: 'socks', tag: 'socks-in', listen: '127.0.0.1', listen_port: 1080 } },
   'http-in': { moduleName: 'inbound', pageId: 'http', title: 'HTTP Inbound', preset: { type: 'http', tag: 'http-in', listen: '127.0.0.1', listen_port: 8080 } },
@@ -720,9 +727,11 @@ function syncUIFromCurrentConfig(config) {
   inbounds.forEach((inbound) => {
     const title = inbound?.type === 'tun' ? 'TUN Inbound' : '';
     pushBlockFromPayload('inbound', inbound, inbound?.type || '', title);
+    pushSharedBlocksFromParent(inbound, 'inbound');
   });
   outbounds.forEach((outbound) => {
     pushBlockFromPayload('outbound', outbound, outbound?.type || '');
+    pushSharedBlocksFromParent(outbound, 'outbound');
   });
   dnsServers.forEach((server) => {
     pushBlockFromPayload('dns', server, server?.type || 'server', 'DNS Server');
@@ -751,6 +760,7 @@ function inferDefault(spec) {
     case 'integer': return 0;
     case 'boolean': return false;
     case 'array_integer':
+    case 'array_string':
     case 'array_object': return [];
     case 'object': return {};
     default: return null;
@@ -870,7 +880,6 @@ function bindWorkspaceDelegation() {
     if (!block) return;
     setNestedValue(block.values, fieldPath, readInputValue(target, target.dataset.fieldType));
     rerenderOutput({ refreshWorkspace: false });
-    debouncedWorkspaceRefresh();
   };
 
   els.blocks.addEventListener('input', (event) => {
@@ -942,7 +951,6 @@ function bindWorkspaceDelegation() {
       value.splice(chipIndex, 1);
       setNestedValue(block.values, fieldPath, value);
       rerenderOutput({ refreshWorkspace: false });
-      debouncedWorkspaceRefresh();
       return;
     }
 
@@ -969,7 +977,6 @@ function bindWorkspaceDelegation() {
     setNestedValue(block.values, fieldPath, normalized);
     target.value = '';
     rerenderOutput({ refreshWorkspace: false });
-    debouncedWorkspaceRefresh();
   });
 }
 
@@ -996,7 +1003,7 @@ function renderField(block, fieldName, spec, depth = 0, breadcrumb = []) {
 
   const current = getNestedValue(block.values, fieldName);
   const type = spec?.type;
-  const allowed = extractEnumValues(spec);
+  const allowed = extractEnumValues(fieldName, spec);
 
   let input;
   if (allowed?.length) {
@@ -1019,7 +1026,7 @@ function renderField(block, fieldName, spec, depth = 0, breadcrumb = []) {
     });
     switchWrap.appendChild(input);
     wrap.appendChild(switchWrap);
-  } else if (type === 'array_integer' || type === 'array_object') {
+  } else if (type === 'array_integer' || type === 'array_string' || type === 'array_object') {
     const list = Array.isArray(current) ? current : [];
     const tagWrap = document.createElement('div');
     tagWrap.className = 'tag-input';
@@ -1106,7 +1113,7 @@ function bindFieldDataset(input, blockId, fieldPath, type) {
 function readInputValue(input, type) {
   if (type === 'boolean') return input.checked;
   if (type === 'integer') return Number(input.value || 0);
-  if (type === 'array_integer' || type === 'array_object') return input.value;
+  if (type === 'array_integer' || type === 'array_string' || type === 'array_object') return input.value;
   if (type === 'object') {
     try {
       return input.value.trim() ? JSON.parse(input.value) : {};
@@ -1124,7 +1131,7 @@ function validateField(value, spec) {
   }
   if (value && typeof value === 'object' && value.__parse_error) errs.push('Object JSON 格式錯誤');
   if (spec.type === 'integer' && typeof value !== 'number') errs.push('需為數字');
-  if (spec.type === 'array_integer' && !Array.isArray(value)) errs.push('需為數組');
+  if ((spec.type === 'array_integer' || spec.type === 'array_string' || spec.type === 'array_object') && !Array.isArray(value)) errs.push('需為數組');
   if (typeof value === 'string' && spec.type === 'string') {
     const desc = String(spec.description || '').toLowerCase();
     if (desc.includes('cidr') && value) {
@@ -1139,7 +1146,11 @@ function validateField(value, spec) {
   return errs;
 }
 
-function extractEnumValues(spec) {
+function extractEnumValues(fieldName, spec) {
+  const leaf = String(fieldName || '').split('.').at(-1);
+  if (leaf && Array.isArray(ENUM_FIELD_OPTIONS[leaf])) {
+    return ENUM_FIELD_OPTIONS[leaf];
+  }
   const candidates = [spec?.allowedValues, spec?.enum, spec?.options, spec?.oneOf];
   for (const candidate of candidates) {
     if (!Array.isArray(candidate) || !candidate.length) continue;
@@ -1499,18 +1510,6 @@ function renderWorkspacePreserveFocus(shouldRestore) {
   const snapshot = shouldRestore ? captureFocusedField() : null;
   renderWorkspace();
   if (shouldRestore) restoreFocusedField(snapshot);
-}
-
-const debouncedWorkspaceRefresh = debounce(() => {
-  rerenderOutput({ refreshWorkspace: true, preserveFocus: true });
-}, 300);
-
-function debounce(fn, wait = 300) {
-  let timer = null;
-  return (...args) => {
-    clearTimeout(timer);
-    timer = setTimeout(() => fn(...args), wait);
-  };
 }
 
 function bindGlobalActions() {

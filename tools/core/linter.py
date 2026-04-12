@@ -75,8 +75,16 @@ class ProjectLinter:
         "experimental",
     }
     ROOT_SHARED_KEYS = ("tls", "transport", "v2ray_transport", "multiplex", "multipath", "mux")
+    ROOT_REHOME_GUIDE = {
+        "tls": "$.inbounds[i].tls / $.outbounds[i].tls / $.endpoints[i].tls",
+        "transport": "$.inbounds[i].transport / $.outbounds[i].transport / $.endpoints[i].transport",
+        "v2ray_transport": "$.inbounds[i].transport / $.outbounds[i].transport / $.endpoints[i].transport",
+        "multiplex": "$.inbounds[i].multiplex / $.outbounds[i].multiplex / $.endpoints[i].multiplex",
+        "mux": "$.inbounds[i].multiplex / $.outbounds[i].multiplex / $.endpoints[i].multiplex",
+        "multipath": "$.inbounds[i].multipath / $.outbounds[i].multipath / $.endpoints[i].multipath",
+    }
 
-    def lint(self, config: dict[str, Any]) -> LintResult:
+    def lint(self, config: dict[str, Any], *, strict_root: bool = False) -> LintResult:
         normalized = copy.deepcopy(config)
         warnings: list[str] = []
 
@@ -85,7 +93,7 @@ class ProjectLinter:
         self._repair_shared_child_scopes(normalized, warnings)
         self._normalize_dns_route_shapes(normalized, warnings)
         self._migrate_root_shared_fields(normalized, warnings)
-        self._enforce_root_whitelist(normalized, warnings)
+        self._enforce_root_whitelist(normalized, warnings, strict_root=strict_root)
         self._validate_shared_field_scopes(normalized, warnings)
         self._validate_shadowsocks_keys(normalized)
 
@@ -191,14 +199,31 @@ class ProjectLinter:
                 warnings.append(f"detected illegal root field {key}, but no inbound/outbound target found")
                 config[normalized_key] = value
 
-    def _enforce_root_whitelist(self, config: dict[str, Any], warnings: list[str]) -> None:
+    def _enforce_root_whitelist(
+        self,
+        config: dict[str, Any],
+        warnings: list[str],
+        *,
+        strict_root: bool = False,
+    ) -> None:
+        illegal_root_keys: list[str] = []
         for key in list(config.keys()):
             if key in self.ROOT_ALLOWED_KEYS:
                 continue
+            illegal_root_keys.append(key)
             config.pop(key)
             warnings.append(
                 f"illegal root field removed: {key} (allowed: {', '.join(sorted(self.ROOT_ALLOWED_KEYS))})"
             )
+        if strict_root and illegal_root_keys:
+            guide_lines = [
+                f"illegal root field detected: {key}. move it under matching inbound/outbound/endpoint object."
+                for key in illegal_root_keys
+            ]
+            for key in illegal_root_keys:
+                if key in self.ROOT_REHOME_GUIDE:
+                    guide_lines.append(f"{key} rehome path: {self.ROOT_REHOME_GUIDE[key]}")
+            raise ValueError("\n".join(guide_lines))
 
     def _validate_shared_field_scopes(self, config: dict[str, Any], warnings: list[str]) -> None:
         shared_keys = {"tls", "transport", "multiplex", "multipath"}
