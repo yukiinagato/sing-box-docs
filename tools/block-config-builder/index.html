@@ -245,11 +245,6 @@ const BLOCK_TYPE_REGISTRY = {
   'direct-out': { moduleName: 'outbound', pageId: 'direct', title: 'Direct Outbound', preset: { type: 'direct', tag: 'direct-out' } },
 };
 
-const SCENARIO_BLOCK_MAPPING = {
-  hub: ['socks-in', 'http-in', 'mixed-in', 'dns-in'],
-  landing: ['shadowsocks-in', 'direct-out'],
-};
-
 const ProjectLinter = {
   validateWizardData(scenario, data) {
     const errors = [];
@@ -475,13 +470,13 @@ function addBlockByPage(moduleName, page, preset = {}) {
   state.blocksData.push(createBlock(moduleName, page, preset));
 }
 
-function addBlock(type, presetOverride = {}) {
+function addBlock(type, initialData = {}) {
   const def = BLOCK_TYPE_REGISTRY[type];
   if (!def) return null;
   const module = state.schemas.get(def.moduleName);
   const page = module?.pages?.find(p => p.page_id === def.pageId) || module?.pages?.[0];
   if (!page) return null;
-  const preset = { ...(def.preset || {}), ...presetOverride, __title: def.title };
+  const preset = { ...(def.preset || {}), ...initialData, __title: def.title };
   addBlockByPage(def.moduleName, page, preset);
   return state.blocksData[state.blocksData.length - 1];
 }
@@ -494,23 +489,14 @@ async function applyWizardScenario() {
     els.errors.textContent = preErrors.join('\n');
     return;
   }
-  const mapped = SCENARIO_BLOCK_MAPPING[state.wizard.scenario];
-  if (!mapped?.length) {
-    rerenderOutput();
-    return;
-  }
   els.blocks.classList.add('generating');
   await new Promise((r) => setTimeout(r, 120));
+  els.blocks.innerHTML = '';
   state.blocksData = [];
-  const w = state.wizard.data;
-  const presetByType = {
-    'socks-in': { listen_port: Number(w.socksPort) || 1080 },
-    'http-in': { listen_port: Number(w.httpPort) || 8080 },
-    'mixed-in': { listen_port: Number(w.mixedPort) || 2080 },
-    'dns-in': { listen_port: Number(w.dnsPort) || 5353 },
-    'shadowsocks-in': { listen_port: Number(w.ssPort) || 8388, listen: w.listen || '0.0.0.0' },
-  };
-  mapped.forEach((type) => addBlock(type, presetByType[type]));
+
+  const wizardConfig = buildWizardConfig();
+  syncUIFromCurrentConfig(wizardConfig);
+  renderWorkspace();
   const lintErrors = ProjectLinter.validateProject(buildMergedConfig().result);
   if (lintErrors.length) {
     state.blocksData = [];
@@ -520,12 +506,79 @@ async function applyWizardScenario() {
     els.errors.textContent = lintErrors.join('\n');
     return;
   }
-  renderWorkspace();
   rerenderOutput();
   els.blocks.classList.remove('generating');
   els.blocks.classList.remove('fade-in');
   void els.blocks.offsetWidth;
   els.blocks.classList.add('fade-in');
+}
+
+function findBestPage(moduleName, payload, preferredPageId = '') {
+  const module = state.schemas.get(moduleName);
+  const pages = module?.pages || [];
+  if (!pages.length) return null;
+  if (preferredPageId) {
+    const direct = pages.find((p) => p.page_id === preferredPageId);
+    if (direct) return direct;
+  }
+  if (payload?.type) {
+    const byType = pages.find((p) => p.page_id === payload.type);
+    if (byType) return byType;
+  }
+
+  let bestPage = pages[0];
+  let bestScore = -1;
+  for (const page of pages) {
+    const fields = Object.keys(page.fields || {});
+    const score = fields.reduce((acc, key) => acc + (Object.hasOwn(payload || {}, key) ? 1 : 0), 0);
+    if (score > bestScore) {
+      bestPage = page;
+      bestScore = score;
+    }
+  }
+  return bestPage;
+}
+
+function pushBlockFromPayload(moduleName, payload, preferredPageId = '', titleFallback = '') {
+  if (!payload || typeof payload !== 'object') return;
+  const page = findBestPage(moduleName, payload, preferredPageId);
+  if (!page) return;
+  const title = titleFallback || page.title || page.page_id;
+  addBlockByPage(moduleName, page, { ...payload, __title: title });
+}
+
+function syncUIFromCurrentConfig(config) {
+  if (!config || typeof config !== 'object') return;
+  const inbounds = Array.isArray(config.inbounds) ? config.inbounds : [];
+  const outbounds = Array.isArray(config.outbounds) ? config.outbounds : [];
+  const dnsServers = Array.isArray(config.dns?.servers) ? config.dns.servers : [];
+  const dnsRules = Array.isArray(config.dns?.rules) ? config.dns.rules : [];
+  const routeRules = Array.isArray(config.route?.rules) ? config.route.rules : [];
+  const endpoints = Array.isArray(config.endpoints) ? config.endpoints : [];
+  const services = Array.isArray(config.services) ? config.services : [];
+
+  inbounds.forEach((inbound) => {
+    const title = inbound?.type === 'tun' ? 'TUN Inbound' : '';
+    pushBlockFromPayload('inbound', inbound, inbound?.type || '', title);
+  });
+  outbounds.forEach((outbound) => {
+    pushBlockFromPayload('outbound', outbound, outbound?.type || '');
+  });
+  dnsServers.forEach((server) => {
+    pushBlockFromPayload('dns', server, server?.type || 'server', 'DNS Server');
+  });
+  dnsRules.forEach((rule) => {
+    pushBlockFromPayload('dns', rule, 'rule', 'DNS Rule');
+  });
+  routeRules.forEach((rule) => {
+    pushBlockFromPayload('route', rule, 'rule', 'Routing Rule');
+  });
+  endpoints.forEach((endpoint) => {
+    pushBlockFromPayload('endpoint', endpoint, endpoint?.type || '');
+  });
+  services.forEach((service) => {
+    pushBlockFromPayload('service', service, service?.type || '');
+  });
 }
 
 function inferDefault(spec) {
@@ -779,7 +832,6 @@ function buildWizardConfig() {
   const d = state.wizard.data || {};
   if (s === 'transparent') {
     const isTun = (d.mode || 'tun') === 'tun';
-    const proxyTag = d.proxyTag || 'proxy-out';
     const inbound = isTun
       ? {
           type: 'tun',
@@ -799,7 +851,6 @@ function buildWizardConfig() {
         };
     return {
       inbounds: [inbound],
-      outbounds: [{ type: 'direct', tag: 'direct' }, { type: 'dns', tag: 'dns-out' }, { type: 'selector', tag: proxyTag, outbounds: ['direct'] }],
       dns: {
         servers: [{ type: 'local', tag: 'dns-local', detour: 'direct' }],
         rules: d.dnsHijack !== false ? [{ protocol: 'dns', server: 'dns-local' }] : [],
@@ -807,9 +858,7 @@ function buildWizardConfig() {
       route: {
         rules: [
           { ip_cidr: ['10.0.0.0/8', '172.16.0.0/12', '192.168.0.0/16'], outbound: 'direct' },
-          { protocol: 'dns', outbound: 'dns-out' },
         ],
-        final: proxyTag,
       },
     };
   }
@@ -858,33 +907,6 @@ function buildWizardConfig() {
     };
   }
   return {};
-}
-
-function applyWizard(result, errors) {
-  const wizardConfig = buildWizardConfig();
-  if (!wizardConfig || Object.keys(wizardConfig).length === 0) return;
-  for (const [key, value] of Object.entries(wizardConfig)) {
-    if (Array.isArray(value)) {
-      if (!Array.isArray(result[key])) result[key] = [];
-      result[key].push(...value);
-    } else if (value && typeof value === 'object') {
-      if (!result[key] || typeof result[key] !== 'object' || Array.isArray(result[key])) result[key] = {};
-      Object.assign(result[key], value);
-    } else {
-      result[key] = value;
-    }
-  }
-
-  if (state.wizard.scenario === 'hub') {
-    const ports = (result.inbounds || []).map(i => i.listen_port).filter(Boolean);
-    const dup = ports.find((p, i) => ports.indexOf(p) !== i);
-    if (dup) errors.push(`端口衝突：inbounds.listen_port ${dup} 重複`);
-  }
-  if (state.wizard.scenario === 'transparent') {
-    const dnsServers = result.dns?.servers || [];
-    const hasSafeDetour = dnsServers.some(s => s?.detour === 'direct' || s?.detour === 'dns-out');
-    if (!hasSafeDetour) errors.push('DNS 出站必須配置 detour 或 direct，防止 DNS 解析請求死循環。');
-  }
 }
 
 function summarizeRules(result) {
@@ -946,7 +968,6 @@ function buildMergedConfig() {
   for (const key of Object.keys(result)) {
     if (Array.isArray(result[key]) && result[key].length === 0) delete result[key];
   }
-  applyWizard(result, errors);
   migrateLegacy14(result, errors);
 
   return { result, errors };
