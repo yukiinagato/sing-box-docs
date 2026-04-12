@@ -68,6 +68,36 @@
       background: #101a2e;
       white-space: pre-wrap;
     }
+    .stepper {
+      display: grid;
+      grid-template-columns: repeat(11, minmax(0, 1fr));
+      gap: 6px;
+      margin-bottom: 10px;
+    }
+    .step-chip {
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 4px 6px;
+      font-size: 11px;
+      text-align: center;
+      color: var(--muted);
+      background: #101b33;
+      cursor: pointer;
+    }
+    .step-chip.active {
+      color: #e8f0ff;
+      border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
+      background: color-mix(in srgb, var(--accent) 18%, #0e1830);
+    }
+    .step-chip.done {
+      color: #c8ffdf;
+      border-color: color-mix(in srgb, var(--ok) 55%, var(--border));
+    }
+    .wizard-nav {
+      display: flex;
+      gap: 8px;
+      margin-top: 8px;
+    }
     .module-group { margin-bottom: 12px; }
     .module-group h3 {
       margin: 0 0 8px;
@@ -383,10 +413,18 @@ const state = {
   blocksData: [],
   errors: [],
   sharedDefs: {},
+  tagRegistry: {
+    inbound: new Set(),
+    outbound: new Set(),
+    endpoint: new Set(),
+    certificate: new Set(),
+    dns_server: new Set(),
+    rule_set: new Set(),
+  },
   exportDiffOnly: false,
   wizard: {
-    scenario: 'none',
-    data: {},
+    currentStep: 1,
+    completedSteps: new Set(),
   },
 };
 
@@ -435,6 +473,20 @@ const ARRAY_OBJECT_TEMPLATES = {
     { id: 'reject', label: '攔截規則 (Reject)', payload: { action: 'reject' } },
   ],
 };
+
+const WIZARD_STEPS = [
+  { index: 1, key: 'log', title: 'log', modules: ['log'], rootPath: 'log' },
+  { index: 2, key: 'ntp', title: 'ntp', modules: ['ntp'], rootPath: 'ntp' },
+  { index: 3, key: 'certificate', title: 'certificate', modules: ['certificate'], rootPath: 'certificate' },
+  { index: 4, key: 'endpoints', title: 'endpoints', modules: ['endpoint'], rootPath: 'endpoints' },
+  { index: 5, key: 'inbounds', title: 'inbounds', modules: ['inbound'], rootPath: 'inbounds' },
+  { index: 6, key: 'outbounds', title: 'outbounds', modules: ['outbound'], rootPath: 'outbounds' },
+  { index: 7, key: 'dns', title: 'dns', modules: ['dns'], rootPath: 'dns' },
+  { index: 8, key: 'route', title: 'route', modules: ['route', 'rule-set'], rootPath: 'route' },
+  { index: 9, key: 'services', title: 'services', modules: ['service'], rootPath: 'services' },
+  { index: 10, key: 'experimental', title: 'experimental', modules: ['experimental'], rootPath: 'experimental' },
+  { index: 11, key: 'review', title: '预览与终审', modules: [], rootPath: '' },
+];
 
 const ProjectLinter = {
   validateWizardData(scenario, data) {
@@ -524,94 +576,35 @@ async function loadSharedDefinitions() {
 }
 
 function renderWizard() {
+  const current = state.wizard.currentStep;
+  const stepper = WIZARD_STEPS.map((step) => {
+    const classes = [
+      'step-chip',
+      step.index === current ? 'active' : '',
+      state.wizard.completedSteps.has(step.index) ? 'done' : '',
+    ].filter(Boolean).join(' ');
+    return `<button class="${classes}" data-role="step-jump" data-step="${step.index}">${step.index}. ${escapeHtml(step.title)}</button>`;
+  }).join('');
+  const step = WIZARD_STEPS.find((item) => item.index === current) || WIZARD_STEPS[0];
+  const moduleHints = step.modules.length ? step.modules.join(', ') : '仅检查与导出';
   els.wizard.innerHTML = `
     <section class="wizard-box">
-      <h3>向導式場景</h3>
+      <h3>11 步向导（低耦合 → 高耦合）</h3>
+      <div class="stepper">${stepper}</div>
       <div class="wizard-grid">
-        <label class="field">
-          <span>場景</span>
-          <select id="wiz-scenario">
-            <option value="none">僅使用 Block</option>
-            <option value="transparent">E: 透明代理網關</option>
-            <option value="split">F: 進階策略分流</option>
-            <option value="hub">G: 混合入站中心</option>
-            <option value="landing">B: 落地服務端</option>
-          </select>
-        </label>
-        <div id="wiz-fields"></div>
-        <button class="btn primary" id="wiz-apply">套用向導場景</button>
+        <div class="meta">当前步骤：Step ${step.index} · ${escapeHtml(step.title)}（可添加模块：${escapeHtml(moduleHints)}）</div>
+        <div id="step-template-zone"></div>
+        <div class="wizard-nav">
+          <button class="btn" id="step-prev" ${current === 1 ? 'disabled' : ''}>上一步</button>
+          <button class="btn primary" id="step-next">${current === 11 ? '完成终审' : '下一步'}</button>
+        </div>
       </div>
     </section>
   `;
-  const scenarioSel = document.getElementById('wiz-scenario');
-  scenarioSel.value = state.wizard.scenario;
-  scenarioSel.onchange = () => {
-    state.wizard.scenario = scenarioSel.value;
-    renderWizardFields();
-  };
-  document.getElementById('wiz-apply').onclick = () => {
-    applyWizardScenario();
-  };
-  renderWizardFields();
-}
-
-function renderWizardFields() {
-  const wrap = document.getElementById('wiz-fields');
-  if (!wrap) return;
-  const s = state.wizard.scenario;
-  if (s === 'transparent') {
-    wrap.innerHTML = `
-      <label class="field"><span>透明入站</span><select data-w="mode"><option value="tun">TUN</option><option value="tproxy">TProxy</option></select></label>
-      <label class="field"><span>代理出口標籤</span><input data-w="proxyTag" value="proxy-out"></label>
-      <label class="field"><span>透明代理端口</span><input data-w="port" type="number" value="7893"></label>
-      <label class="field"><span><input data-w="sniff" type="checkbox" checked> 啟用 sniffing</span></label>
-      <label class="field"><span><input data-w="dnsHijack" type="checkbox" checked> 啟用 DNS Hijack</span></label>
-    `;
-  } else if (s === 'split') {
-    wrap.innerHTML = `
-      <label class="field"><span>流媒體域名</span><input data-w="mediaDomains" value="youtube.com,netflix.com"></label>
-      <label class="field"><span>AI 域名</span><input data-w="aiDomains" value="openai.com,anthropic.com"></label>
-      <label class="field"><span>廣告域名</span><input data-w="adDomains" value="doubleclick.net,adservice.google.com"></label>
-      <label class="field"><span>主節點協議</span><select data-w="mainProtocol"><option value="shadowsocks">Shadowsocks</option><option value="hysteria2">Hysteria2</option></select></label>
-      <label class="field dyn-hy2" hidden><span>up_mbps</span><input data-w="upMbps" type="number" value="100"></label>
-      <label class="field dyn-hy2" hidden><span>down_mbps</span><input data-w="downMbps" type="number" value="100"></label>
-      <label class="field dyn-hy2" hidden><span>obfs</span><input data-w="obfs" value="salamander"></label>
-    `;
-    const protocolSel = wrap.querySelector('[data-w=\"mainProtocol\"]');
-    const toggleHy2 = () => {
-      const show = protocolSel.value === 'hysteria2';
-      wrap.querySelectorAll('.dyn-hy2').forEach(el => { el.hidden = !show; });
-    };
-    protocolSel.onchange = toggleHy2;
-    toggleHy2();
-  } else if (s === 'hub') {
-    wrap.innerHTML = `
-      <label class="field"><span>SOCKS 端口</span><input data-w="socksPort" type="number" value="1080"></label>
-      <label class="field"><span>HTTP 端口</span><input data-w="httpPort" type="number" value="8080"></label>
-      <label class="field"><span>Mixed 端口</span><input data-w="mixedPort" type="number" value="2080"></label>
-      <label class="field"><span>DNS 端口</span><input data-w="dnsPort" type="number" value="5353"></label>
-    `;
-  } else if (s === 'landing') {
-    wrap.innerHTML = `
-      <label class="field"><span>Shadowsocks 端口</span><input data-w="ssPort" type="number" value="8388"></label>
-      <label class="field"><span>服務監聽地址</span><input data-w="listen" value="0.0.0.0"></label>
-    `;
-  } else {
-    wrap.innerHTML = '<div class="meta">選擇場景後可生成 1.14 兼容模板。</div>';
-  }
 }
 
 function collectWizardData() {
-  const wrap = document.getElementById('wiz-fields');
-  if (!wrap) return {};
-  const data = {};
-  wrap.querySelectorAll('[data-w]').forEach((el) => {
-    const key = el.getAttribute('data-w');
-    if (el.type === 'checkbox') data[key] = el.checked;
-    else if (el.type === 'number') data[key] = Number(el.value || 0);
-    else data[key] = el.value;
-  });
-  return data;
+  return {};
 }
 
 async function discoverSchemaFiles() {
@@ -641,7 +634,13 @@ async function loadSchema(filename) {
 }
 
 function renderLibrary() {
+  const currentStep = WIZARD_STEPS.find((item) => item.index === state.wizard.currentStep) || WIZARD_STEPS[0];
+  if (state.wizard.currentStep === 11) {
+    els.library.innerHTML = '<div class="empty">Step 11 仅用于预览、linter 检查、sing-box check 验证与导出。</div>';
+    return;
+  }
   const modules = [...state.schemas.values()]
+    .filter((schema) => currentStep.modules.includes(schema.module))
     .filter((schema) => ROOT_ALLOWED_KEYS.has(resolveRootKeyByModule(schema.module)))
     .sort((a, b) => a.module.localeCompare(b.module));
   if (!modules.length) {
@@ -667,6 +666,22 @@ function renderLibrary() {
       group.appendChild(btn);
     }
     els.library.appendChild(group);
+  }
+
+  if (state.wizard.currentStep === 6) {
+    const tplGroup = document.createElement('div');
+    tplGroup.className = 'module-group';
+    tplGroup.innerHTML = '<h3>常见模板</h3>';
+    const tplBtn = document.createElement('button');
+    tplBtn.className = 'library-btn';
+    tplBtn.textContent = '添加 VLESS / Shadowsocks / Reality 预设积木';
+    tplBtn.onclick = () => {
+      addOutboundTemplates();
+      renderWorkspace();
+      rerenderOutput();
+    };
+    tplGroup.appendChild(tplBtn);
+    els.library.appendChild(tplGroup);
   }
 }
 
@@ -773,6 +788,15 @@ function addBlock(type, initialData = {}) {
   const preset = { ...(def.preset || {}), ...initialData, __title: def.title };
   addBlockByPage(def.moduleName, page, preset);
   return state.blocksData[state.blocksData.length - 1];
+}
+
+function addOutboundTemplates() {
+  const presets = [
+    { type: 'vless', tag: 'vless-out', server: 'example.com', server_port: 443, uuid: '00000000-0000-0000-0000-000000000000', tls: { enabled: true, server_name: 'example.com' } },
+    { type: 'shadowsocks', tag: 'ss-out', server: 'example.com', server_port: 443, method: '2022-blake3-aes-256-gcm', password: '' },
+    { type: 'vless', tag: 'reality-out', server: 'example.com', server_port: 443, uuid: '00000000-0000-0000-0000-000000000000', tls: { enabled: true, reality: { enabled: true, public_key: '', short_id: '' } } },
+  ];
+  presets.forEach((payload) => pushBlockFromPayload('outbound', payload, payload.type, `${payload.type.toUpperCase()} Template`));
 }
 
 async function applyWizardScenario() {
@@ -1052,6 +1076,19 @@ function bindWorkspaceDelegation() {
   els.blocks.addEventListener('change', (event) => {
     const target = event.target;
     if (!(target instanceof HTMLInputElement || target instanceof HTMLSelectElement || target instanceof HTMLTextAreaElement)) return;
+    if (target.dataset.role === 'tag-editor' && target instanceof HTMLSelectElement) {
+      const fieldPath = target.dataset.fieldPath;
+      const blockId = target.dataset.blockId;
+      const block = state.blocksData.find((item) => item.id === blockId);
+      if (!fieldPath || !block || !target.value) return;
+      const list = getNestedValue(block.values, fieldPath);
+      const normalized = Array.isArray(list) ? [...list] : [];
+      if (!normalized.includes(target.value)) normalized.push(target.value);
+      setNestedValue(block.values, fieldPath, normalized);
+      target.value = '';
+      rerenderOutput({ refreshWorkspace: false });
+      return;
+    }
     if (target.dataset.role === 'tag-editor') return;
     const card = target.closest('.block');
     const index = Number(card?.dataset.index);
@@ -1230,6 +1267,7 @@ function renderField(block, fieldName, spec, depth = 0, breadcrumb = []) {
   const current = getNestedValue(block.values, fieldName);
   const type = spec?.type;
   const allowed = extractEnumValues(fieldName, spec);
+  const refOptions = inferReferenceOptions(block, fieldName);
 
   let input;
   if (allowed?.length) {
@@ -1241,6 +1279,8 @@ function renderField(block, fieldName, spec, depth = 0, breadcrumb = []) {
       if (String(current) === String(v)) opt.selected = true;
       input.appendChild(opt);
     }
+  } else if (refOptions.length && (type === 'string' || !type)) {
+    input = createReferenceSelect(refOptions, current);
   } else if (type === 'boolean') {
     const switchWrap = document.createElement('label');
     switchWrap.className = `switch ${current ? 'on' : ''}`;
@@ -1263,10 +1303,16 @@ function renderField(block, fieldName, spec, depth = 0, breadcrumb = []) {
       tagWrap.appendChild(chip);
     });
     input = document.createElement('input');
-    input.type = 'text';
-    input.className = 'tag-input-editor';
-    input.placeholder = type === 'array_integer' ? '輸入數字，回車新增' : '輸入內容，回車新增';
-    input.dataset.role = 'tag-editor';
+    if (refOptions.length && type === 'array_string') {
+      input = createReferenceSelect(refOptions, '');
+      input.className = 'tag-input-editor';
+      input.dataset.role = 'tag-editor';
+    } else {
+      input.type = 'text';
+      input.className = 'tag-input-editor';
+      input.placeholder = type === 'array_integer' ? '輸入數字，回車新增' : '輸入內容，回車新增';
+      input.dataset.role = 'tag-editor';
+    }
     tagWrap.appendChild(input);
     wrap.appendChild(tagWrap);
   } else if (type === 'array_object') {
@@ -1432,6 +1478,7 @@ function renderArrayObjectItemField(block, fieldPath, itemIndex, key, value) {
   field.className = 'field';
   const spec = inferSpecFromValue(value);
   const allowed = extractEnumValues(key, spec);
+  const refOptions = inferReferenceOptions(block, `${fieldPath}.${key}`);
   field.innerHTML = `<span>${escapeHtml(key)}</span>`;
   let input;
   if (allowed?.length) {
@@ -1443,6 +1490,8 @@ function renderArrayObjectItemField(block, fieldPath, itemIndex, key, value) {
       if (String(value ?? '') === String(v)) opt.selected = true;
       input.appendChild(opt);
     });
+  } else if (refOptions.length && (spec.type === 'string' || !spec.type)) {
+    input = createReferenceSelect(refOptions, value);
   } else if (spec.type === 'boolean') {
     input = document.createElement('input');
     input.type = 'checkbox';
@@ -2004,14 +2053,113 @@ function resolveRootKeyByModule(moduleName) {
   return map[moduleName] || moduleName;
 }
 
+function getCurrentStepMeta() {
+  return WIZARD_STEPS.find((item) => item.index === state.wizard.currentStep) || WIZARD_STEPS[0];
+}
+
+function updateTagRegistry() {
+  Object.values(state.tagRegistry).forEach((set) => set.clear());
+  const { result } = buildMergedConfig();
+  (result.inbounds || []).forEach((item) => item?.tag && state.tagRegistry.inbound.add(String(item.tag)));
+  (result.outbounds || []).forEach((item) => item?.tag && state.tagRegistry.outbound.add(String(item.tag)));
+  (result.endpoints || []).forEach((item) => item?.tag && state.tagRegistry.endpoint.add(String(item.tag)));
+  (result.certificate?.certificate_providers || result.certificate_providers || []).forEach((item) => item?.tag && state.tagRegistry.certificate.add(String(item.tag)));
+  (result.dns?.servers || []).forEach((item) => item?.tag && state.tagRegistry.dns_server.add(String(item.tag)));
+  (result.route?.rule_set || []).forEach((item) => item?.tag && state.tagRegistry.rule_set.add(String(item.tag)));
+}
+
+function inferReferenceOptions(block, fieldPath) {
+  const leaf = String(fieldPath).split('.').at(-1) || '';
+  if (leaf === 'detour' || leaf === 'outbound' || leaf === 'download_detour' || leaf === 'default') return [...state.tagRegistry.outbound];
+  if (leaf === 'inbound' || leaf === 'inbound_tag') return [...state.tagRegistry.inbound];
+  if (leaf === 'server' && block.moduleName === 'dns') return [...state.tagRegistry.dns_server];
+  if (leaf.includes('certificate') || leaf === 'certificate') return [...state.tagRegistry.certificate];
+  if (leaf === 'endpoint') return [...state.tagRegistry.endpoint];
+  if (leaf === 'rule_set') return [...state.tagRegistry.rule_set];
+  return [];
+}
+
+function createReferenceSelect(options, currentValue) {
+  const select = document.createElement('select');
+  const empty = document.createElement('option');
+  empty.value = '';
+  empty.textContent = '(空)';
+  select.appendChild(empty);
+  options.forEach((v) => {
+    const opt = document.createElement('option');
+    opt.value = v;
+    opt.textContent = v;
+    if (String(currentValue || '') === String(v)) opt.selected = true;
+    select.appendChild(opt);
+  });
+  return select;
+}
+
+async function lintCurrentStep() {
+  const { result } = buildMergedConfig();
+  try {
+    const resp = await fetch('/tools/lint-config', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(result),
+    });
+    if (!resp.ok) return;
+    const payload = await resp.json();
+    const errors = Array.isArray(payload?.errors) ? payload.errors : [];
+    if (errors.length) {
+      els.errors.hidden = false;
+      els.errors.textContent = `Step ${state.wizard.currentStep} 预校验警告:\n${errors.join('\n')}`;
+    }
+  } catch {
+    // ignore network/backend errors in static mode
+  }
+}
+
+async function runFinalReview() {
+  const { result } = buildMergedConfig();
+  await lintCurrentStep();
+  try {
+    const resp = await fetch('/tools/singbox-check', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(result),
+    });
+    if (resp.ok) {
+      const payload = await resp.json();
+      if (payload?.ok) {
+        els.summary.textContent = `${els.summary.textContent}\n终审：sing-box check 通过。`;
+      } else if (Array.isArray(payload?.errors) && payload.errors.length) {
+        els.errors.hidden = false;
+        els.errors.textContent = `sing-box check 失败:\n${payload.errors.join('\n')}`;
+      }
+    } else {
+      els.summary.textContent = `${els.summary.textContent}\n终审：未连接到 sing-box check 服务（已跳过）。`;
+    }
+  } catch {
+    els.summary.textContent = `${els.summary.textContent}\n终审：当前静态环境不可调用 sing-box check（已跳过）。`;
+  }
+}
+
+function scrollPreviewToStepPath() {
+  const step = getCurrentStepMeta();
+  if (!step.rootPath) return;
+  const marker = `"${step.rootPath}"`;
+  const idx = els.preview.textContent.indexOf(marker);
+  if (idx < 0) return;
+  const ratio = idx / Math.max(1, els.preview.textContent.length);
+  els.preview.scrollTop = Math.floor((els.preview.scrollHeight - els.preview.clientHeight) * ratio);
+}
+
 function rerenderOutput(options = {}) {
   const { refreshWorkspace = true, preserveFocus = false } = options;
   const { result, errors } = buildMergedConfig();
+  updateTagRegistry();
   const exportResult = applyExportMode(result);
   els.preview.innerHTML = highlightJson(safeStringify(exportResult, 2));
   els.summary.textContent = summarizeRules(exportResult);
   els.errors.hidden = errors.length === 0;
   els.errors.textContent = errors.length ? errors.join('\n') : '';
+  scrollPreviewToStepPath();
 
   if (refreshWorkspace) {
     renderWorkspacePreserveFocus(preserveFocus);
@@ -2051,6 +2199,40 @@ function renderWorkspacePreserveFocus(shouldRestore) {
 }
 
 function bindGlobalActions() {
+  els.wizard.addEventListener('click', async (event) => {
+    const target = event.target.closest('[data-role], #step-prev, #step-next');
+    if (!target) return;
+    if (target.id === 'step-prev') {
+      state.wizard.currentStep = Math.max(1, state.wizard.currentStep - 1);
+      renderWizard();
+      renderLibrary();
+      rerenderOutput({ refreshWorkspace: false });
+      return;
+    }
+    if (target.id === 'step-next') {
+      if (state.wizard.currentStep === 11) {
+        await runFinalReview();
+        rerenderOutput({ refreshWorkspace: false });
+        return;
+      }
+      state.wizard.completedSteps.add(state.wizard.currentStep);
+      await lintCurrentStep();
+      state.wizard.currentStep = Math.min(11, state.wizard.currentStep + 1);
+      renderWizard();
+      renderLibrary();
+      rerenderOutput({ refreshWorkspace: false });
+      return;
+    }
+    if (target.dataset.role === 'step-jump') {
+      const step = Number(target.dataset.step);
+      if (!Number.isInteger(step) || step < 1 || step > 11) return;
+      state.wizard.currentStep = step;
+      renderWizard();
+      renderLibrary();
+      rerenderOutput({ refreshWorkspace: false });
+    }
+  });
+
   els.diffOnlyToggle.onchange = () => {
     state.exportDiffOnly = els.diffOnlyToggle.checked;
     rerenderOutput({ refreshWorkspace: false });
