@@ -141,7 +141,7 @@ def validate_config(config: Any) -> None:
 
 
 def normalize_and_lint_config(config: dict[str, Any]) -> dict[str, Any]:
-    lint_result = ProjectLinter().lint(config)
+    lint_result = ProjectLinter().lint(config, strict_root=True)
     for item in lint_result.warnings:
         warnings.warn(item, RuntimeWarning, stacklevel=2)
     return lint_result.config
