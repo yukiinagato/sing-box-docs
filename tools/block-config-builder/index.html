@@ -58,6 +58,34 @@
       margin-bottom: 12px;
       background: #111a30;
     }
+    .stepper {
+      display: grid;
+      grid-template-columns: repeat(11, minmax(0, 1fr));
+      gap: 6px;
+      margin-bottom: 10px;
+    }
+    .step-chip {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 6px;
+      font-size: 11px;
+      color: var(--muted);
+      background: #0e1730;
+      text-align: center;
+    }
+    .step-chip.active {
+      color: #d8e7ff;
+      border-color: var(--accent);
+      background: #1a3165;
+    }
+    .step-chip.done {
+      color: #ccead8;
+      border-color: color-mix(in srgb, var(--ok) 40%, var(--border));
+    }
+    .wizard-nav {
+      display: flex;
+      gap: 8px;
+    }
     .wizard-box h3 { margin: 0 0 8px; font-size: 13px; }
     .wizard-grid { display: grid; gap: 8px; }
     .wizard-summary {
@@ -387,7 +415,31 @@ const state = {
   wizard: {
     scenario: 'none',
     data: {},
+    currentStep: 1,
   },
+};
+
+const WIZARD_STEPS = [
+  { id: 1, key: 'log', title: 'log', modules: ['log'], rootPath: 'log' },
+  { id: 2, key: 'ntp', title: 'ntp', modules: ['ntp'], rootPath: 'ntp' },
+  { id: 3, key: 'certificate', title: 'certificate', modules: ['certificate'], rootPath: 'certificate' },
+  { id: 4, key: 'endpoints', title: 'endpoints', modules: ['endpoint'], rootPath: 'endpoints' },
+  { id: 5, key: 'inbounds', title: 'inbounds', modules: ['inbound'], rootPath: 'inbounds' },
+  { id: 6, key: 'outbounds', title: 'outbounds', modules: ['outbound', 'shared'], rootPath: 'outbounds' },
+  { id: 7, key: 'dns', title: 'dns', modules: ['dns'], rootPath: 'dns' },
+  { id: 8, key: 'route', title: 'route', modules: ['route', 'rule-set'], rootPath: 'route' },
+  { id: 9, key: 'services', title: 'services', modules: ['service'], rootPath: 'services' },
+  { id: 10, key: 'experimental', title: 'experimental', modules: ['experimental'], rootPath: 'experimental' },
+  { id: 11, key: 'review', title: '预览与终审', modules: [], rootPath: '' },
+];
+
+const TagRegistry = {
+  certificates: new Set(),
+  certificateProviders: new Set(),
+  endpoints: new Set(),
+  inbounds: new Set(),
+  outbounds: new Set(),
+  dnsServers: new Set(),
 };
 
 const ARRAY_BUCKETS = {
@@ -524,80 +576,157 @@ async function loadSharedDefinitions() {
 }
 
 function renderWizard() {
+  const currentStep = WIZARD_STEPS.find((step) => step.id === state.wizard.currentStep) || WIZARD_STEPS[0];
+  const completed = new Set(WIZARD_STEPS.filter((step) => step.id < state.wizard.currentStep).map((step) => step.id));
+  const stepper = WIZARD_STEPS.map((step) => {
+    const cls = ['step-chip', step.id === currentStep.id ? 'active' : '', completed.has(step.id) ? 'done' : ''].join(' ').trim();
+    return `<button class="${cls}" data-step="${step.id}">${step.id}. ${escapeHtml(step.title)}</button>`;
+  }).join('');
   els.wizard.innerHTML = `
     <section class="wizard-box">
-      <h3>向導式場景</h3>
+      <h3>11 步向导式自愈配置构建器</h3>
+      <div class="stepper">${stepper}</div>
       <div class="wizard-grid">
-        <label class="field">
-          <span>場景</span>
-          <select id="wiz-scenario">
-            <option value="none">僅使用 Block</option>
-            <option value="transparent">E: 透明代理網關</option>
-            <option value="split">F: 進階策略分流</option>
-            <option value="hub">G: 混合入站中心</option>
-            <option value="landing">B: 落地服務端</option>
-          </select>
-        </label>
+        <div class="meta">当前步骤：Step ${currentStep.id} · ${escapeHtml(currentStep.title)}</div>
+        <div class="wizard-nav">
+          <button class="btn" id="wiz-prev" ${state.wizard.currentStep === 1 ? 'disabled' : ''}>上一步</button>
+          <button class="btn" id="wiz-next" ${state.wizard.currentStep === 11 ? 'disabled' : ''}>下一步</button>
+          <button class="btn primary" id="wiz-template">添加常见模板</button>
+          ${state.wizard.currentStep === 11 ? '<button class="btn primary" id="wiz-final-check">执行终审检查</button>' : ''}
+        </div>
         <div id="wiz-fields"></div>
-        <button class="btn primary" id="wiz-apply">套用向導場景</button>
       </div>
     </section>
   `;
-  const scenarioSel = document.getElementById('wiz-scenario');
-  scenarioSel.value = state.wizard.scenario;
-  scenarioSel.onchange = () => {
-    state.wizard.scenario = scenarioSel.value;
-    renderWizardFields();
-  };
-  document.getElementById('wiz-apply').onclick = () => {
-    applyWizardScenario();
-  };
+  els.wizard.querySelectorAll('[data-step]').forEach((btn) => {
+    btn.onclick = () => {
+      state.wizard.currentStep = Number(btn.dataset.step);
+      renderWizard();
+      renderLibrary();
+      renderWorkspace();
+      rerenderOutput({ refreshWorkspace: false });
+    };
+  });
+  document.getElementById('wiz-prev').onclick = () => moveWizardStep(-1);
+  document.getElementById('wiz-next').onclick = () => moveWizardStep(1);
+  document.getElementById('wiz-template').onclick = () => addTemplateForCurrentStep();
+  const finalCheckBtn = document.getElementById('wiz-final-check');
+  if (finalCheckBtn) finalCheckBtn.onclick = () => runFinalReviewChecks();
   renderWizardFields();
 }
 
 function renderWizardFields() {
   const wrap = document.getElementById('wiz-fields');
   if (!wrap) return;
-  const s = state.wizard.scenario;
-  if (s === 'transparent') {
-    wrap.innerHTML = `
-      <label class="field"><span>透明入站</span><select data-w="mode"><option value="tun">TUN</option><option value="tproxy">TProxy</option></select></label>
-      <label class="field"><span>代理出口標籤</span><input data-w="proxyTag" value="proxy-out"></label>
-      <label class="field"><span>透明代理端口</span><input data-w="port" type="number" value="7893"></label>
-      <label class="field"><span><input data-w="sniff" type="checkbox" checked> 啟用 sniffing</span></label>
-      <label class="field"><span><input data-w="dnsHijack" type="checkbox" checked> 啟用 DNS Hijack</span></label>
-    `;
-  } else if (s === 'split') {
-    wrap.innerHTML = `
-      <label class="field"><span>流媒體域名</span><input data-w="mediaDomains" value="youtube.com,netflix.com"></label>
-      <label class="field"><span>AI 域名</span><input data-w="aiDomains" value="openai.com,anthropic.com"></label>
-      <label class="field"><span>廣告域名</span><input data-w="adDomains" value="doubleclick.net,adservice.google.com"></label>
-      <label class="field"><span>主節點協議</span><select data-w="mainProtocol"><option value="shadowsocks">Shadowsocks</option><option value="hysteria2">Hysteria2</option></select></label>
-      <label class="field dyn-hy2" hidden><span>up_mbps</span><input data-w="upMbps" type="number" value="100"></label>
-      <label class="field dyn-hy2" hidden><span>down_mbps</span><input data-w="downMbps" type="number" value="100"></label>
-      <label class="field dyn-hy2" hidden><span>obfs</span><input data-w="obfs" value="salamander"></label>
-    `;
-    const protocolSel = wrap.querySelector('[data-w=\"mainProtocol\"]');
-    const toggleHy2 = () => {
-      const show = protocolSel.value === 'hysteria2';
-      wrap.querySelectorAll('.dyn-hy2').forEach(el => { el.hidden = !show; });
-    };
-    protocolSel.onchange = toggleHy2;
-    toggleHy2();
-  } else if (s === 'hub') {
-    wrap.innerHTML = `
-      <label class="field"><span>SOCKS 端口</span><input data-w="socksPort" type="number" value="1080"></label>
-      <label class="field"><span>HTTP 端口</span><input data-w="httpPort" type="number" value="8080"></label>
-      <label class="field"><span>Mixed 端口</span><input data-w="mixedPort" type="number" value="2080"></label>
-      <label class="field"><span>DNS 端口</span><input data-w="dnsPort" type="number" value="5353"></label>
-    `;
-  } else if (s === 'landing') {
-    wrap.innerHTML = `
-      <label class="field"><span>Shadowsocks 端口</span><input data-w="ssPort" type="number" value="8388"></label>
-      <label class="field"><span>服務監聽地址</span><input data-w="listen" value="0.0.0.0"></label>
-    `;
+  const step = WIZARD_STEPS.find((item) => item.id === state.wizard.currentStep);
+  const path = step?.rootPath ? `JSON 路径：$.${step.rootPath}` : 'JSON 路径：全局预览终审';
+  wrap.innerHTML = `<div class="meta">${path}</div>`;
+}
+
+function moveWizardStep(delta) {
+  const nextStep = Math.max(1, Math.min(11, state.wizard.currentStep + delta));
+  if (nextStep === state.wizard.currentStep) return;
+  precheckCurrentStep().finally(() => {
+    state.wizard.currentStep = nextStep;
+    renderWizard();
+    renderLibrary();
+    renderWorkspace();
+    rerenderOutput({ refreshWorkspace: false });
+  });
+}
+
+function addTemplateForCurrentStep() {
+  const step = state.wizard.currentStep;
+  if (step === 6) {
+    addBlock('direct-out');
+    const outboundModule = state.schemas.get('outbound');
+    const vlessPage = outboundModule?.pages?.find((p) => p.page_id === 'vless');
+    if (vlessPage) addBlockByPage('outbound', vlessPage, { type: 'vless', tag: 'vless-reality', server: 'example.com', server_port: 443, tls: { enabled: true, server_name: 'example.com', reality: { enabled: true, public_key: '', short_id: '' } } });
+    const ssPage = outboundModule?.pages?.find((p) => p.page_id === 'shadowsocks');
+    if (ssPage) addBlockByPage('outbound', ssPage, { type: 'shadowsocks', tag: 'ss-template', server: '1.2.3.4', server_port: 443, method: '2022-blake3-aes-128-gcm', password: '' });
+  } else if (step === 5) {
+    addBlock('mixed-in');
+  } else if (step === 7) {
+    const dnsModule = state.schemas.get('dns');
+    const page = dnsModule?.pages?.find((p) => p.page_id === 'server');
+    if (page) addBlockByPage('dns', page, { type: 'https', tag: 'dns-https', server: '1.1.1.1', server_port: 443, detour: [...TagRegistry.outbounds][0] || 'direct' });
   } else {
-    wrap.innerHTML = '<div class="meta">選擇場景後可生成 1.14 兼容模板。</div>';
+    els.errors.hidden = false;
+    els.errors.textContent = '当前步骤暂无预设模板，可直接添加 Block。';
+  }
+  renderWorkspace();
+  rerenderOutput();
+}
+
+async function precheckCurrentStep() {
+  const { result } = buildMergedConfig();
+  const localErrors = detectDetourCycles(result);
+  const remoteErrors = await runLinterCheck(result);
+  const merged = [...remoteErrors, ...localErrors];
+  els.errors.hidden = merged.length === 0;
+  els.errors.textContent = merged.join('\n');
+}
+
+function detectDetourCycles(config) {
+  const outbounds = Array.isArray(config?.outbounds) ? config.outbounds : [];
+  const edges = new Map();
+  outbounds.forEach((item) => {
+    const tag = item?.tag;
+    const detour = item?.detour;
+    if (tag && detour) edges.set(tag, detour);
+  });
+  const errors = [];
+  edges.forEach((to, from) => {
+    let cur = to;
+    const visited = new Set([from]);
+    while (edges.has(cur)) {
+      if (visited.has(cur)) {
+        errors.push(`detour 环路：${from} -> ${to} ... -> ${cur}`);
+        break;
+      }
+      visited.add(cur);
+      cur = edges.get(cur);
+    }
+  });
+  return [...new Set(errors)];
+}
+
+async function runLinterCheck(config) {
+  try {
+    const resp = await fetch('/tools/lint-config', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(config),
+    });
+    if (!resp.ok) return ['ProjectLinter 预校验失败（接口不可用）。'];
+    const payload = await resp.json();
+    return Array.isArray(payload?.errors) ? payload.errors : [];
+  } catch {
+    return ['ProjectLinter 预校验失败（网络或服务不可达）。'];
+  }
+}
+
+async function runFinalReviewChecks() {
+  const { result } = buildMergedConfig();
+  const linterErrors = await runLinterCheck(result);
+  const checkErrors = await runSingboxCheck(result);
+  const merged = [...linterErrors, ...checkErrors];
+  els.errors.hidden = merged.length === 0;
+  els.errors.textContent = merged.length ? merged.join('\n') : '终审通过：ProjectLinter + sing-box check 均通过。';
+}
+
+async function runSingboxCheck(config) {
+  try {
+    const resp = await fetch('/tools/check-config', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(config),
+    });
+    if (!resp.ok) return ['sing-box check 校验失败（接口不可用）。'];
+    const payload = await resp.json();
+    return Array.isArray(payload?.errors) ? payload.errors : [];
+  } catch {
+    return ['sing-box check 校验失败（网络或服务不可达）。'];
   }
 }
 
@@ -641,8 +770,15 @@ async function loadSchema(filename) {
 }
 
 function renderLibrary() {
+  const step = WIZARD_STEPS.find((item) => item.id === state.wizard.currentStep);
+  const allowedModules = new Set(step?.modules || []);
+  if (state.wizard.currentStep === 11) {
+    els.library.innerHTML = '<div class="empty">终审步骤：无需新增 Block，可执行检查并导出配置。</div>';
+    return;
+  }
   const modules = [...state.schemas.values()]
     .filter((schema) => ROOT_ALLOWED_KEYS.has(resolveRootKeyByModule(schema.module)))
+    .filter((schema) => allowedModules.has(schema.module))
     .sort((a, b) => a.module.localeCompare(b.module));
   if (!modules.length) {
     els.library.innerHTML = '<div class="empty">找不到可用 Schema。</div>';
@@ -928,17 +1064,18 @@ function inferDefault(spec) {
 }
 
 function renderWorkspace() {
-  if (!state.blocksData.length) {
+  const visibleBlocks = getVisibleBlocksByStep();
+  if (!visibleBlocks.length) {
     els.blocks.innerHTML = '<div class="empty">從左側選擇任意 Schema 頁面以新增第一個 Block。</div>';
     return;
   }
 
   els.blocks.innerHTML = '';
-  state.blocksData.forEach((block, index) => {
+  visibleBlocks.forEach((block, index) => {
     const card = document.createElement('article');
     card.className = 'block';
     card.draggable = true;
-    card.dataset.index = String(index);
+    card.dataset.index = String(state.blocksData.findIndex((item) => item.id === block.id));
 
     const parentBlock = block.parentId ? state.blocksData.find((b) => b.id === block.parentId) : null;
     const scopeMeta = block.moduleName === 'shared'
@@ -1006,6 +1143,13 @@ function buildFieldTree(fields) {
     groups.get(head)[restPath] = spec;
   });
   return { fields: plainFields, groups };
+}
+
+function getVisibleBlocksByStep() {
+  const step = WIZARD_STEPS.find((item) => item.id === state.wizard.currentStep);
+  if (!step || state.wizard.currentStep === 11) return state.blocksData;
+  const allowed = new Set(step.modules || []);
+  return state.blocksData.filter((block) => allowed.has(block.moduleName));
 }
 
 function bindDragHandlers(card) {
@@ -1161,7 +1305,7 @@ function bindWorkspaceDelegation() {
 
   els.blocks.addEventListener('keydown', (event) => {
     const target = event.target;
-    if (!(target instanceof HTMLInputElement) || target.dataset.role !== 'tag-editor') return;
+    if (!(target instanceof HTMLInputElement || target instanceof HTMLSelectElement) || target.dataset.role !== 'tag-editor') return;
     if (!(event.key === 'Enter' || event.key === ',')) return;
     event.preventDefault();
     const fieldPath = target.dataset.fieldPath;
@@ -1169,7 +1313,7 @@ function bindWorkspaceDelegation() {
     if (!fieldPath || !blockId) return;
     const block = state.blocksData.find((item) => item.id === blockId);
     if (!block) return;
-    const raw = target.value.trim().replace(/,$/, '');
+    const raw = String(target.value || '').trim().replace(/,$/, '');
     if (!raw) return;
     const type = target.dataset.fieldType;
     const validationError = validateTagChipInput(fieldPath, raw);
@@ -1230,9 +1374,23 @@ function renderField(block, fieldName, spec, depth = 0, breadcrumb = []) {
   const current = getNestedValue(block.values, fieldName);
   const type = spec?.type;
   const allowed = extractEnumValues(fieldName, spec);
+  const refOptions = getReferenceOptions(block, fieldName, type);
 
   let input;
-  if (allowed?.length) {
+  if (refOptions.length) {
+    input = document.createElement('select');
+    const empty = document.createElement('option');
+    empty.value = '';
+    empty.textContent = '选择已注册标签';
+    input.appendChild(empty);
+    refOptions.forEach((v) => {
+      const opt = document.createElement('option');
+      opt.value = String(v);
+      opt.textContent = String(v);
+      if (String(current ?? '') === String(v)) opt.selected = true;
+      input.appendChild(opt);
+    });
+  } else if (allowed?.length) {
     input = document.createElement('select');
     for (const v of allowed) {
       const opt = document.createElement('option');
@@ -1262,11 +1420,28 @@ function renderField(block, fieldName, spec, depth = 0, breadcrumb = []) {
       chip.innerHTML = `${escapeHtml(String(item))} <button type="button" data-role="tag-remove" data-tag-index="${idx}" data-field-path="${escapeHtml(fieldName)}">×</button>`;
       tagWrap.appendChild(chip);
     });
-    input = document.createElement('input');
-    input.type = 'text';
-    input.className = 'tag-input-editor';
-    input.placeholder = type === 'array_integer' ? '輸入數字，回車新增' : '輸入內容，回車新增';
-    input.dataset.role = 'tag-editor';
+    const arrayRefOptions = type === 'array_string' ? getReferenceOptions(block, fieldName.replace(/s$/, ''), 'string') : [];
+    if (arrayRefOptions.length) {
+      input = document.createElement('select');
+      const empty = document.createElement('option');
+      empty.value = '';
+      empty.textContent = '选择标签后按 Enter 添加';
+      input.appendChild(empty);
+      arrayRefOptions.forEach((item) => {
+        const opt = document.createElement('option');
+        opt.value = item;
+        opt.textContent = item;
+        input.appendChild(opt);
+      });
+      input.className = 'tag-input-editor';
+      input.dataset.role = 'tag-editor';
+    } else {
+      input = document.createElement('input');
+      input.type = 'text';
+      input.className = 'tag-input-editor';
+      input.placeholder = type === 'array_integer' ? '輸入數字，回車新增' : '輸入內容，回車新增';
+      input.dataset.role = 'tag-editor';
+    }
     tagWrap.appendChild(input);
     wrap.appendChild(tagWrap);
   } else if (type === 'array_object') {
@@ -1357,6 +1532,34 @@ function shouldRenderField(block, fieldName) {
   return true;
 }
 
+function rebuildTagRegistry() {
+  Object.values(TagRegistry).forEach((bucket) => bucket.clear());
+  for (const block of state.blocksData) {
+    const tag = String(getNestedValue(block.values, 'tag') ?? '').trim();
+    if (!tag) continue;
+    if (block.moduleName === 'certificate') TagRegistry.certificates.add(tag);
+    if (block.moduleName === 'endpoint') TagRegistry.endpoints.add(tag);
+    if (block.moduleName === 'inbound') TagRegistry.inbounds.add(tag);
+    if (block.moduleName === 'outbound') TagRegistry.outbounds.add(tag);
+    if (block.moduleName === 'dns' && block.role === 'dns_server') TagRegistry.dnsServers.add(tag);
+  }
+}
+
+function getReferenceOptions(block, fieldName, type) {
+  const leaf = String(fieldName).split('.').at(-1);
+  if (type !== 'string') return [];
+  if (leaf === 'detour' || leaf === 'outbound' || leaf === 'download_detour') {
+    return [...TagRegistry.outbounds].filter((tag) => tag !== getNestedValue(block.values, 'tag'));
+  }
+  if (leaf === 'server') return [...TagRegistry.dnsServers];
+  if (leaf === 'inbound') return [...TagRegistry.inbounds];
+  if (leaf === 'endpoint') return [...TagRegistry.endpoints];
+  if (leaf.includes('certificate')) {
+    return [...new Set([...TagRegistry.certificates, ...TagRegistry.certificateProviders])];
+  }
+  return [];
+}
+
 function getArrayTemplateKey(block, fieldName) {
   return `${block.role}.${fieldName}`;
 }
@@ -1388,6 +1591,10 @@ function getArrayObjectVisibleKeys(fieldName, item) {
 function parseArrayObjectFieldValue(type, input) {
   if (type === 'boolean') return Boolean(input.checked);
   if (type === 'integer') return Number(input.value || 0);
+  if ((type === 'array_string' || type === 'array_integer') && input instanceof HTMLSelectElement && input.multiple) {
+    const values = [...input.selectedOptions].map((opt) => opt.value);
+    return type === 'array_integer' ? values.map((v) => Number(v)).filter((v) => Number.isFinite(v)) : values;
+  }
   if (type === 'array_integer' || type === 'array_string' || type === 'array_object' || type === 'object') {
     try {
       return input.value.trim() ? JSON.parse(input.value) : (type === 'object' ? {} : []);
@@ -1432,9 +1639,23 @@ function renderArrayObjectItemField(block, fieldPath, itemIndex, key, value) {
   field.className = 'field';
   const spec = inferSpecFromValue(value);
   const allowed = extractEnumValues(key, spec);
+  const refOptions = getReferenceOptions(block, key, spec.type);
   field.innerHTML = `<span>${escapeHtml(key)}</span>`;
   let input;
-  if (allowed?.length) {
+  if (refOptions.length) {
+    input = document.createElement('select');
+    const empty = document.createElement('option');
+    empty.value = '';
+    empty.textContent = '选择标签';
+    input.appendChild(empty);
+    refOptions.forEach((v) => {
+      const opt = document.createElement('option');
+      opt.value = String(v);
+      opt.textContent = String(v);
+      if (String(value ?? '') === String(v)) opt.selected = true;
+      input.appendChild(opt);
+    });
+  } else if (allowed?.length) {
     input = document.createElement('select');
     allowed.forEach((v) => {
       const opt = document.createElement('option');
@@ -1451,6 +1672,16 @@ function renderArrayObjectItemField(block, fieldPath, itemIndex, key, value) {
     input = document.createElement('input');
     input.type = 'number';
     input.value = Number.isFinite(value) ? String(value) : '0';
+  } else if ((spec.type === 'array_string' || spec.type === 'array_integer') && refOptions.length) {
+    input = document.createElement('select');
+    input.multiple = true;
+    refOptions.forEach((v) => {
+      const opt = document.createElement('option');
+      opt.value = String(v);
+      opt.textContent = String(v);
+      if (Array.isArray(value) && value.map(String).includes(String(v))) opt.selected = true;
+      input.appendChild(opt);
+    });
   } else if (spec.type === 'array_integer' || spec.type === 'array_string' || spec.type === 'array_object' || spec.type === 'object') {
     input = document.createElement('textarea');
     input.value = safeStringify(value ?? (spec.type === 'object' ? {} : []), 2);
@@ -2006,6 +2237,7 @@ function resolveRootKeyByModule(moduleName) {
 
 function rerenderOutput(options = {}) {
   const { refreshWorkspace = true, preserveFocus = false } = options;
+  rebuildTagRegistry();
   const { result, errors } = buildMergedConfig();
   const exportResult = applyExportMode(result);
   els.preview.innerHTML = highlightJson(safeStringify(exportResult, 2));
@@ -2016,6 +2248,18 @@ function rerenderOutput(options = {}) {
   if (refreshWorkspace) {
     renderWorkspacePreserveFocus(preserveFocus);
   }
+  scrollPreviewToCurrentStep();
+}
+
+function scrollPreviewToCurrentStep() {
+  const step = WIZARD_STEPS.find((item) => item.id === state.wizard.currentStep);
+  if (!step?.rootPath) return;
+  const marker = `"${step.rootPath}"`;
+  const index = els.preview.textContent.indexOf(marker);
+  if (index < 0) return;
+  const ratio = index / Math.max(1, els.preview.textContent.length);
+  const maxScroll = Math.max(0, els.preview.scrollHeight - els.preview.clientHeight);
+  els.preview.scrollTop = maxScroll * ratio;
 }
 
 function captureFocusedField() {
