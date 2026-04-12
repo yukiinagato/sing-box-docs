@@ -110,6 +110,35 @@
       text-align: center;
     }
     .btn.primary { background: var(--accent); border-color: transparent; }
+    .wizard-steps {
+      display: grid;
+      grid-template-columns: repeat(11, minmax(0, 1fr));
+      gap: 6px;
+      padding: 10px 12px 0;
+    }
+    .step-pill {
+      border: 1px solid var(--border);
+      background: #111a30;
+      color: #9fb0d8;
+      border-radius: 8px;
+      padding: 7px 6px;
+      text-align: center;
+      font-size: 11px;
+      cursor: pointer;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .step-pill.active {
+      background: #1f3466;
+      border-color: var(--accent);
+      color: #e5efff;
+    }
+    .step-nav {
+      display: flex;
+      gap: 8px;
+      padding: 8px 12px 0;
+    }
     .btn.danger { background: color-mix(in srgb, var(--danger) 20%, #2a0d14); border-color: color-mix(in srgb, var(--danger) 50%, var(--border)); }
     .blocks { padding: 12px; overflow: auto; display: flex; flex-direction: column; gap: 12px; }
     .blocks.generating { opacity: .5; pointer-events: none; }
@@ -336,6 +365,11 @@
     </aside>
 
     <section class="panel">
+      <div class="wizard-steps" id="wizard-steps"></div>
+      <div class="step-nav">
+        <button class="btn" id="step-prev-btn">← 上一步</button>
+        <button class="btn primary" id="step-next-btn">下一步 →</button>
+      </div>
       <div class="workspace-header">
         <div>
           <strong>Block 工作區</strong>
@@ -385,9 +419,9 @@ const state = {
   sharedDefs: {},
   exportDiffOnly: false,
   wizard: {
-    scenario: 'none',
-    data: {},
+    currentStep: 0,
   },
+  tagRegistry: {},
 };
 
 const ARRAY_BUCKETS = {
@@ -416,6 +450,20 @@ const KNOWN_SCHEMA_FILES = [
 
 const ENUM_FIELD_OPTIONS = {};
 
+const WIZARD_STEPS = [
+  { key: 'log', title: 'Step 1 · log', modules: ['log'], rootPath: 'log' },
+  { key: 'ntp', title: 'Step 2 · ntp', modules: ['ntp'], rootPath: 'ntp' },
+  { key: 'certificate', title: 'Step 3 · certificate & providers', modules: ['certificate'], rootPath: 'certificate' },
+  { key: 'endpoint', title: 'Step 4 · endpoints', modules: ['endpoint'], rootPath: 'endpoints' },
+  { key: 'inbound', title: 'Step 5 · inbounds', modules: ['inbound'], rootPath: 'inbounds' },
+  { key: 'outbound', title: 'Step 6 · outbounds', modules: ['outbound'], rootPath: 'outbounds', templateButton: true },
+  { key: 'dns', title: 'Step 7 · dns', modules: ['dns'], rootPath: 'dns' },
+  { key: 'route', title: 'Step 8 · route', modules: ['route'], rootPath: 'route' },
+  { key: 'service', title: 'Step 9 · services', modules: ['service'], rootPath: 'services' },
+  { key: 'experimental', title: 'Step 10 · experimental', modules: ['experimental'], rootPath: 'experimental' },
+  { key: 'review', title: 'Step 11 · preview & lint', modules: [], rootPath: '' },
+];
+
 const BLOCK_TYPE_REGISTRY = {
   'socks-in': { moduleName: 'inbound', pageId: 'socks', title: 'SOCKS Inbound', preset: { type: 'socks', tag: 'socks-in', listen: '127.0.0.1', listen_port: 1080 } },
   'http-in': { moduleName: 'inbound', pageId: 'http', title: 'HTTP Inbound', preset: { type: 'http', tag: 'http-in', listen: '127.0.0.1', listen_port: 8080 } },
@@ -437,24 +485,6 @@ const ARRAY_OBJECT_TEMPLATES = {
 };
 
 const ProjectLinter = {
-  validateWizardData(scenario, data) {
-    const errors = [];
-    if (scenario === 'hub') {
-      const pairs = [
-        ['SOCKS', Number(data.socksPort)],
-        ['HTTP', Number(data.httpPort)],
-        ['Mixed', Number(data.mixedPort)],
-        ['DNS', Number(data.dnsPort)],
-      ];
-      const ports = pairs.map(([, p]) => p);
-      pairs.forEach(([name, p]) => {
-        if (!Number.isInteger(p) || p <= 0 || p > 65535) errors.push(`${name} 端口需介於 1-65535。`);
-      });
-      const dup = ports.find((p, i) => ports.indexOf(p) !== i);
-      if (dup) errors.push(`端口衝突：${dup} 被重複使用。`);
-    }
-    return errors;
-  },
   validateProject(config) {
     const errors = [];
     Object.keys(config || {}).forEach((key) => {
@@ -469,6 +499,9 @@ const ProjectLinter = {
 
 const els = {
   wizard: document.getElementById('wizard'),
+  wizardSteps: document.getElementById('wizard-steps'),
+  stepPrev: document.getElementById('step-prev-btn'),
+  stepNext: document.getElementById('step-next-btn'),
   library: document.getElementById('library'),
   blocks: document.getElementById('blocks'),
   preview: document.getElementById('preview'),
@@ -524,94 +557,104 @@ async function loadSharedDefinitions() {
 }
 
 function renderWizard() {
+  const step = WIZARD_STEPS[state.wizard.currentStep];
   els.wizard.innerHTML = `
     <section class="wizard-box">
-      <h3>向導式場景</h3>
+      <h3>11 步向導模式</h3>
+      <div class="meta">${escapeHtml(step.title)}</div>
       <div class="wizard-grid">
-        <label class="field">
-          <span>場景</span>
-          <select id="wiz-scenario">
-            <option value="none">僅使用 Block</option>
-            <option value="transparent">E: 透明代理網關</option>
-            <option value="split">F: 進階策略分流</option>
-            <option value="hub">G: 混合入站中心</option>
-            <option value="landing">B: 落地服務端</option>
-          </select>
-        </label>
-        <div id="wiz-fields"></div>
-        <button class="btn primary" id="wiz-apply">套用向導場景</button>
+        <div class="meta">遵循低耦合 → 高耦合順序；當前步驟新增的 tag 會注入全局 Tag Registry，供後續步驟下拉引用。</div>
+        ${step.templateButton ? '<button class="btn" id="add-common-template">添加常見模板 (VLESS / Shadowsocks / Reality)</button>' : ''}
       </div>
     </section>
   `;
-  const scenarioSel = document.getElementById('wiz-scenario');
-  scenarioSel.value = state.wizard.scenario;
-  scenarioSel.onchange = () => {
-    state.wizard.scenario = scenarioSel.value;
-    renderWizardFields();
-  };
-  document.getElementById('wiz-apply').onclick = () => {
-    applyWizardScenario();
-  };
-  renderWizardFields();
-}
-
-function renderWizardFields() {
-  const wrap = document.getElementById('wiz-fields');
-  if (!wrap) return;
-  const s = state.wizard.scenario;
-  if (s === 'transparent') {
-    wrap.innerHTML = `
-      <label class="field"><span>透明入站</span><select data-w="mode"><option value="tun">TUN</option><option value="tproxy">TProxy</option></select></label>
-      <label class="field"><span>代理出口標籤</span><input data-w="proxyTag" value="proxy-out"></label>
-      <label class="field"><span>透明代理端口</span><input data-w="port" type="number" value="7893"></label>
-      <label class="field"><span><input data-w="sniff" type="checkbox" checked> 啟用 sniffing</span></label>
-      <label class="field"><span><input data-w="dnsHijack" type="checkbox" checked> 啟用 DNS Hijack</span></label>
-    `;
-  } else if (s === 'split') {
-    wrap.innerHTML = `
-      <label class="field"><span>流媒體域名</span><input data-w="mediaDomains" value="youtube.com,netflix.com"></label>
-      <label class="field"><span>AI 域名</span><input data-w="aiDomains" value="openai.com,anthropic.com"></label>
-      <label class="field"><span>廣告域名</span><input data-w="adDomains" value="doubleclick.net,adservice.google.com"></label>
-      <label class="field"><span>主節點協議</span><select data-w="mainProtocol"><option value="shadowsocks">Shadowsocks</option><option value="hysteria2">Hysteria2</option></select></label>
-      <label class="field dyn-hy2" hidden><span>up_mbps</span><input data-w="upMbps" type="number" value="100"></label>
-      <label class="field dyn-hy2" hidden><span>down_mbps</span><input data-w="downMbps" type="number" value="100"></label>
-      <label class="field dyn-hy2" hidden><span>obfs</span><input data-w="obfs" value="salamander"></label>
-    `;
-    const protocolSel = wrap.querySelector('[data-w=\"mainProtocol\"]');
-    const toggleHy2 = () => {
-      const show = protocolSel.value === 'hysteria2';
-      wrap.querySelectorAll('.dyn-hy2').forEach(el => { el.hidden = !show; });
+  const tplBtn = document.getElementById('add-common-template');
+  if (tplBtn) {
+    tplBtn.onclick = () => {
+      addCommonOutboundsTemplate();
+      renderWorkspace();
+      rerenderOutput();
     };
-    protocolSel.onchange = toggleHy2;
-    toggleHy2();
-  } else if (s === 'hub') {
-    wrap.innerHTML = `
-      <label class="field"><span>SOCKS 端口</span><input data-w="socksPort" type="number" value="1080"></label>
-      <label class="field"><span>HTTP 端口</span><input data-w="httpPort" type="number" value="8080"></label>
-      <label class="field"><span>Mixed 端口</span><input data-w="mixedPort" type="number" value="2080"></label>
-      <label class="field"><span>DNS 端口</span><input data-w="dnsPort" type="number" value="5353"></label>
-    `;
-  } else if (s === 'landing') {
-    wrap.innerHTML = `
-      <label class="field"><span>Shadowsocks 端口</span><input data-w="ssPort" type="number" value="8388"></label>
-      <label class="field"><span>服務監聽地址</span><input data-w="listen" value="0.0.0.0"></label>
-    `;
-  } else {
-    wrap.innerHTML = '<div class="meta">選擇場景後可生成 1.14 兼容模板。</div>';
   }
+  renderStepIndicators();
 }
 
-function collectWizardData() {
-  const wrap = document.getElementById('wiz-fields');
-  if (!wrap) return {};
-  const data = {};
-  wrap.querySelectorAll('[data-w]').forEach((el) => {
-    const key = el.getAttribute('data-w');
-    if (el.type === 'checkbox') data[key] = el.checked;
-    else if (el.type === 'number') data[key] = Number(el.value || 0);
-    else data[key] = el.value;
+function renderStepIndicators() {
+  els.wizardSteps.innerHTML = '';
+  WIZARD_STEPS.forEach((step, index) => {
+    const node = document.createElement('button');
+    node.className = `step-pill ${index === state.wizard.currentStep ? 'active' : ''}`;
+    node.textContent = `${index + 1}.${step.key}`;
+    node.onclick = () => gotoStep(index);
+    els.wizardSteps.appendChild(node);
   });
-  return data;
+}
+
+function getCurrentStep() {
+  return WIZARD_STEPS[state.wizard.currentStep];
+}
+
+function gotoStep(nextStep) {
+  const target = Math.min(Math.max(nextStep, 0), WIZARD_STEPS.length - 1);
+  state.wizard.currentStep = target;
+  renderWizard();
+  renderLibrary();
+  renderWorkspace();
+  rerenderOutput({ refreshWorkspace: false });
+  scrollPreviewToCurrentStep();
+}
+
+async function runStepPrecheck() {
+  const { result } = buildMergedConfig();
+  const errors = ProjectLinter.validateProject(result);
+  const cycleErrors = validateDetourCycles(result.outbounds || []);
+  const combined = [...errors, ...cycleErrors];
+  els.errors.hidden = combined.length === 0;
+  els.errors.textContent = combined.join('\n');
+  if (combined.length) return false;
+  try {
+    await normalizeImportedConfig(result);
+  } catch {
+    // ignore transport limitation for static preview.
+  }
+  return true;
+}
+
+function validateDetourCycles(outbounds) {
+  const graph = new Map();
+  const errors = [];
+  outbounds.forEach((item) => {
+    if (!item?.tag) return;
+    graph.set(item.tag, item.detour ? String(item.detour) : '');
+  });
+  const visited = new Set();
+  const stack = new Set();
+  const dfs = (tag) => {
+    if (stack.has(tag)) return true;
+    if (visited.has(tag)) return false;
+    visited.add(tag);
+    stack.add(tag);
+    const next = graph.get(tag);
+    if (next && graph.has(next) && dfs(next)) return true;
+    stack.delete(tag);
+    return false;
+  };
+  graph.forEach((_, tag) => {
+    if (dfs(tag)) errors.push(`detour 環路引用檢測到: ${tag}`);
+  });
+  return [...new Set(errors)];
+}
+
+function addCommonOutboundsTemplate() {
+  const outboundSchema = state.schemas.get('outbound');
+  if (!outboundSchema?.pages?.length) return;
+  const push = (pageId, preset, title) => {
+    const page = outboundSchema.pages.find((item) => item.page_id === pageId) || outboundSchema.pages[0];
+    addBlockByPage('outbound', page, { ...preset, __title: title });
+  };
+  push('vless', { type: 'vless', tag: 'vless-out', server: 'example.com', server_port: 443 }, 'VLESS Template');
+  push('shadowsocks', { type: 'shadowsocks', tag: 'ss-out', server: 'example.com', server_port: 443, method: 'aes-128-gcm' }, 'Shadowsocks Template');
+  push('vless', { type: 'vless', tag: 'reality-out', server: 'example.com', server_port: 443, tls: { enabled: true, server_name: 'example.com', reality: { enabled: true, public_key: '', short_id: '' } } }, 'Reality Template');
 }
 
 async function discoverSchemaFiles() {
@@ -641,8 +684,14 @@ async function loadSchema(filename) {
 }
 
 function renderLibrary() {
+  const step = getCurrentStep();
+  if (step.key === 'review') {
+    els.library.innerHTML = '<div class="empty">終審步驟：請查看右側 JSON，執行 lint/check 後導出。</div>';
+    return;
+  }
   const modules = [...state.schemas.values()]
     .filter((schema) => ROOT_ALLOWED_KEYS.has(resolveRootKeyByModule(schema.module)))
+    .filter((schema) => step.modules.includes(schema.module))
     .sort((a, b) => a.module.localeCompare(b.module));
   if (!modules.length) {
     els.library.innerHTML = '<div class="empty">找不到可用 Schema。</div>';
@@ -775,38 +824,6 @@ function addBlock(type, initialData = {}) {
   return state.blocksData[state.blocksData.length - 1];
 }
 
-async function applyWizardScenario() {
-  state.wizard.data = collectWizardData();
-  const preErrors = ProjectLinter.validateWizardData(state.wizard.scenario, state.wizard.data);
-  if (preErrors.length) {
-    els.errors.hidden = false;
-    els.errors.textContent = preErrors.join('\n');
-    return;
-  }
-  els.blocks.classList.add('generating');
-  await new Promise((r) => setTimeout(r, 120));
-  els.blocks.innerHTML = '';
-  state.blocksData = [];
-
-  const wizardConfig = buildWizardConfig();
-  syncUIFromCurrentConfig(wizardConfig);
-  renderWorkspace();
-  const lintErrors = ProjectLinter.validateProject(buildMergedConfig().result);
-  if (lintErrors.length) {
-    state.blocksData = [];
-    renderWorkspace();
-    els.blocks.classList.remove('generating');
-    els.errors.hidden = false;
-    els.errors.textContent = lintErrors.join('\n');
-    return;
-  }
-  rerenderOutput();
-  els.blocks.classList.remove('generating');
-  els.blocks.classList.remove('fade-in');
-  void els.blocks.offsetWidth;
-  els.blocks.classList.add('fade-in');
-}
-
 function findBestPage(moduleName, payload, preferredPageId = '') {
   const module = state.schemas.get(moduleName);
   const pages = module?.pages || [];
@@ -928,13 +945,19 @@ function inferDefault(spec) {
 }
 
 function renderWorkspace() {
-  if (!state.blocksData.length) {
+  const step = getCurrentStep();
+  const visibleBlocks = step.key === 'review'
+    ? state.blocksData
+    : state.blocksData.filter((block) => step.modules.includes(block.moduleName));
+
+  if (!visibleBlocks.length) {
     els.blocks.innerHTML = '<div class="empty">從左側選擇任意 Schema 頁面以新增第一個 Block。</div>';
     return;
   }
 
   els.blocks.innerHTML = '';
-  state.blocksData.forEach((block, index) => {
+  visibleBlocks.forEach((block) => {
+    const index = state.blocksData.findIndex((item) => item.id === block.id);
     const card = document.createElement('article');
     card.className = 'block';
     card.draggable = true;
@@ -1203,6 +1226,47 @@ function validateTagChipInput(fieldPath, raw) {
   return '';
 }
 
+function rebuildTagRegistry() {
+  const next = {
+    inbound: [],
+    outbound: [],
+    endpoint: [],
+    certificate: [],
+    certificate_provider: [],
+    dns_server: [],
+  };
+  state.blocksData.forEach((block) => {
+    if (!block.active) return;
+    const tag = String(getNestedValue(block.values, 'tag') || '').trim();
+    if (!tag) return;
+    if (block.moduleName === 'inbound') next.inbound.push(tag);
+    if (block.moduleName === 'outbound') next.outbound.push(tag);
+    if (block.moduleName === 'endpoint') next.endpoint.push(tag);
+    if (block.moduleName === 'certificate') {
+      if (block.pageId === 'certificate_provider') next.certificate_provider.push(tag);
+      else next.certificate.push(tag);
+    }
+    if (block.moduleName === 'dns' && block.role === 'dns_server') next.dns_server.push(tag);
+  });
+  Object.keys(next).forEach((key) => { next[key] = [...new Set(next[key])]; });
+  state.tagRegistry = next;
+}
+
+function resolveReferenceOptions(block, fieldName, spec) {
+  const leaf = String(fieldName).split('.').at(-1) || '';
+  if (leaf === 'detour' || leaf === 'download_detour' || leaf === 'outbound') return state.tagRegistry.outbound || [];
+  if (leaf === 'inbound') return state.tagRegistry.inbound || [];
+  if (leaf === 'server' && block.moduleName === 'dns' && block.role === 'dns_rule') return state.tagRegistry.dns_server || [];
+  if (leaf.includes('endpoint')) return state.tagRegistry.endpoint || [];
+  if (leaf.includes('certificate_provider')) return state.tagRegistry.certificate_provider || [];
+  if (leaf.includes('certificate') || fieldName.includes('tls.certificate')) return state.tagRegistry.certificate || [];
+  if (spec?.description && /detour|inbound|outbound/i.test(spec.description)) {
+    if (/inbound/i.test(spec.description)) return state.tagRegistry.inbound || [];
+    return state.tagRegistry.outbound || [];
+  }
+  return null;
+}
+
 function renderField(block, fieldName, spec, depth = 0, breadcrumb = []) {
   if (!shouldRenderField(block, fieldName)) {
     return document.createElement('div');
@@ -1230,9 +1294,23 @@ function renderField(block, fieldName, spec, depth = 0, breadcrumb = []) {
   const current = getNestedValue(block.values, fieldName);
   const type = spec?.type;
   const allowed = extractEnumValues(fieldName, spec);
+  const references = resolveReferenceOptions(block, fieldName, spec);
 
   let input;
-  if (allowed?.length) {
+  if (references?.length && type === 'string') {
+    input = document.createElement('select');
+    const empty = document.createElement('option');
+    empty.value = '';
+    empty.textContent = '請選擇已定義 tag';
+    input.appendChild(empty);
+    references.forEach((v) => {
+      const opt = document.createElement('option');
+      opt.value = String(v);
+      opt.textContent = String(v);
+      if (String(current || '') === String(v)) opt.selected = true;
+      input.appendChild(opt);
+    });
+  } else if (allowed?.length) {
     input = document.createElement('select');
     for (const v of allowed) {
       const opt = document.createElement('option');
@@ -1268,6 +1346,29 @@ function renderField(block, fieldName, spec, depth = 0, breadcrumb = []) {
     input.placeholder = type === 'array_integer' ? '輸入數字，回車新增' : '輸入內容，回車新增';
     input.dataset.role = 'tag-editor';
     tagWrap.appendChild(input);
+    if (references?.length && type === 'array_string') {
+      const refSelect = document.createElement('select');
+      refSelect.dataset.role = 'tag-editor';
+      refSelect.dataset.blockId = block.id;
+      refSelect.dataset.fieldPath = fieldName;
+      refSelect.dataset.fieldType = type;
+      refSelect.innerHTML = '<option value="">選擇已註冊 tag</option>';
+      references.forEach((v) => {
+        const opt = document.createElement('option');
+        opt.value = v;
+        opt.textContent = v;
+        refSelect.appendChild(opt);
+      });
+      refSelect.addEventListener('change', () => {
+        if (!refSelect.value) return;
+        const next = Array.isArray(getNestedValue(block.values, fieldName)) ? [...getNestedValue(block.values, fieldName)] : [];
+        next.push(refSelect.value);
+        setNestedValue(block.values, fieldName, next);
+        refSelect.value = '';
+        rerenderOutput({ refreshWorkspace: false });
+      });
+      tagWrap.appendChild(refSelect);
+    }
     wrap.appendChild(tagWrap);
   } else if (type === 'array_object') {
     const list = Array.isArray(current) ? current : [];
@@ -1691,88 +1792,6 @@ function enforceRootWhitelist(result, errors) {
   }
 }
 
-function buildWizardConfig() {
-  const s = state.wizard.scenario;
-  const d = state.wizard.data || {};
-  if (s === 'transparent') {
-    const isTun = (d.mode || 'tun') === 'tun';
-    const inbound = isTun
-      ? {
-          type: 'tun',
-          tag: 'tun-in',
-          mtu: 9000,
-          auto_route: true,
-          platform: { http_proxy: { enabled: false } },
-          platform_interface: true,
-          sniff: d.sniff !== false,
-        }
-      : {
-          type: 'tproxy',
-          tag: 'tproxy-in',
-          listen: '0.0.0.0',
-          listen_port: d.port || 7893,
-          sniff: d.sniff !== false,
-        };
-    return {
-      inbounds: [inbound],
-      dns: {
-        servers: [{ type: 'local', tag: 'dns-local', detour: 'direct' }],
-        rules: d.dnsHijack !== false ? [{ protocol: 'dns', server: 'dns-local' }] : [],
-      },
-      route: {
-        rules: [
-          { ip_cidr: ['10.0.0.0/8', '172.16.0.0/12', '192.168.0.0/16'], outbound: 'direct' },
-        ],
-      },
-    };
-  }
-  if (s === 'split') {
-    const mediaDomains = String(d.mediaDomains || '').split(',').map(v => v.trim()).filter(Boolean);
-    const aiDomains = String(d.aiDomains || '').split(',').map(v => v.trim()).filter(Boolean);
-    const adDomains = String(d.adDomains || '').split(',').map(v => v.trim()).filter(Boolean);
-    const hy2 = d.mainProtocol === 'hysteria2';
-    return {
-      outbounds: [
-        { type: 'selector', tag: 'main-selector', outbounds: ['streaming-out', 'ai-out', 'direct'] },
-        { type: 'urltest', tag: 'main-auto', outbounds: ['streaming-out', 'ai-out'], url: 'https://cp.cloudflare.com/generate_204' },
-        { type: hy2 ? 'hysteria2' : 'shadowsocks', tag: 'streaming-out', up_mbps: d.upMbps || 100, down_mbps: d.downMbps || 100, obfs: d.obfs || 'salamander' },
-        { type: 'shadowsocks', tag: 'ai-out' },
-        { type: 'block', tag: 'ad-block' },
-        { type: 'direct', tag: 'direct' },
-      ],
-      route: {
-        geoip: { path: 'geoip.db' },
-        geosite: { path: 'geosite.db' },
-        rules: [
-          { domain_suffix: adDomains, outbound: 'ad-block' },
-          { domain_suffix: mediaDomains, outbound: 'streaming-out' },
-          { domain_suffix: aiDomains, outbound: 'ai-out' },
-          { geosite: ['cn'], outbound: 'direct' },
-        ],
-        final: 'main-selector',
-      },
-    };
-  }
-  if (s === 'hub') {
-    return {
-      inbounds: [
-        { type: 'socks', tag: 'socks-in', listen: '127.0.0.1', listen_port: d.socksPort || 1080 },
-        { type: 'http', tag: 'http-in', listen: '127.0.0.1', listen_port: d.httpPort || 8080 },
-        { type: 'mixed', tag: 'mixed-in', listen: '127.0.0.1', listen_port: d.mixedPort || 2080 },
-        { type: 'dns', tag: 'dns-in', listen: '127.0.0.1', listen_port: d.dnsPort || 5353 },
-      ],
-      outbounds: [{ type: 'direct', tag: 'direct' }, { type: 'block', tag: 'block' }],
-      route: {
-        rules: [
-          { inbound: ['dns-in'], outbound: 'direct' },
-          { inbound: ['socks-in', 'http-in', 'mixed-in'], outbound: 'direct' },
-        ],
-      },
-    };
-  }
-  return {};
-}
-
 function summarizeRules(result) {
   const rules = result.route?.rules || [];
   const items = [];
@@ -2006,6 +2025,7 @@ function resolveRootKeyByModule(moduleName) {
 
 function rerenderOutput(options = {}) {
   const { refreshWorkspace = true, preserveFocus = false } = options;
+  rebuildTagRegistry();
   const { result, errors } = buildMergedConfig();
   const exportResult = applyExportMode(result);
   els.preview.innerHTML = highlightJson(safeStringify(exportResult, 2));
@@ -2050,7 +2070,26 @@ function renderWorkspacePreserveFocus(shouldRestore) {
   if (shouldRestore) restoreFocusedField(snapshot);
 }
 
+function scrollPreviewToCurrentStep() {
+  const step = getCurrentStep();
+  if (!step.rootPath) return;
+  const anchor = `"${step.rootPath}"`;
+  const index = els.preview.textContent.indexOf(anchor);
+  if (index <= 0) {
+    els.preview.scrollTop = 0;
+    return;
+  }
+  const ratio = index / Math.max(els.preview.textContent.length, 1);
+  els.preview.scrollTop = ratio * els.preview.scrollHeight;
+}
+
 function bindGlobalActions() {
+  els.stepPrev.onclick = () => gotoStep(state.wizard.currentStep - 1);
+  els.stepNext.onclick = async () => {
+    const ok = await runStepPrecheck();
+    if (!ok) return;
+    gotoStep(state.wizard.currentStep + 1);
+  };
   els.diffOnlyToggle.onchange = () => {
     state.exportDiffOnly = els.diffOnlyToggle.checked;
     rerenderOutput({ refreshWorkspace: false });
