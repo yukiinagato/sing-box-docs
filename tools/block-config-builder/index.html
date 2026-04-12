@@ -644,8 +644,23 @@ function createBlock(moduleName, page, preset = {}) {
     fields,
     values,
     basePayload,
+    role: classifyBlockRole(moduleName, page),
     parentId: moduleName === 'shared' ? findPreferredSharedParentId() : null,
   };
+}
+
+function classifyBlockRole(moduleName, page) {
+  const sourcePath = String(page?.source_path || '');
+  if (moduleName === 'dns') {
+    if (sourcePath.includes('/dns/server/')) return 'dns_server';
+    if (sourcePath.includes('/dns/rule')) return 'dns_rule';
+    return 'dns_root';
+  }
+  if (moduleName === 'route') {
+    if (sourcePath.includes('/route/rule')) return 'route_rule';
+    return 'route_root';
+  }
+  return 'default';
 }
 
 function hydrateKnownFieldsFromPayload(values, fields, payload) {
@@ -1492,7 +1507,7 @@ function summarizeRules(result) {
 }
 
 function buildMergedConfig() {
-  const result = {};
+  let result = {};
   const errors = [...state.errors];
   const payloadByBlockId = new Map();
 
@@ -1509,7 +1524,7 @@ function buildMergedConfig() {
         errors.push(`${block.title}.${name}: ${allErrors.join(', ')}`);
         continue;
       }
-      if (value === '' || value === null || value === undefined) continue;
+      if (!shouldPersistFieldValue(block, name, value, spec)) continue;
       setPayloadValue(payload, name, value);
     }
     payloadByBlockId.set(block.id, payload);
@@ -1523,10 +1538,25 @@ function buildMergedConfig() {
     if (bucket === 'inbounds' || bucket === 'outbounds' || bucket === 'endpoints' || bucket === 'services') {
       if (!Array.isArray(result[bucket])) result[bucket] = [];
       result[bucket].push(payload);
-    } else if (bucket === 'dns' || bucket === 'route') {
-      if (!result[bucket] || typeof result[bucket] !== 'object' || Array.isArray(result[bucket])) result[bucket] = {};
-      Object.assign(result[bucket], payload);
-      if (!Array.isArray(result[bucket].rules)) result[bucket].rules = [];
+    } else if (bucket === 'dns') {
+      if (!result.dns || typeof result.dns !== 'object' || Array.isArray(result.dns)) result.dns = {};
+      if (block.role === 'dns_server') {
+        if (!Array.isArray(result.dns.servers)) result.dns.servers = [];
+        result.dns.servers.push(payload);
+      } else if (block.role === 'dns_rule') {
+        if (!Array.isArray(result.dns.rules)) result.dns.rules = [];
+        result.dns.rules.push(payload);
+      } else {
+        Object.assign(result.dns, payload);
+      }
+    } else if (bucket === 'route') {
+      if (!result.route || typeof result.route !== 'object' || Array.isArray(result.route)) result.route = {};
+      if (block.role === 'route_rule') {
+        if (!Array.isArray(result.route.rules)) result.route.rules = [];
+        result.route.rules.push(payload);
+      } else {
+        Object.assign(result.route, payload);
+      }
     } else if (['log', 'experimental', 'dns', 'route', 'ntp', 'certificate'].includes(block.moduleName)) {
       if (!result[block.moduleName] || typeof result[block.moduleName] !== 'object' || Array.isArray(result[block.moduleName])) {
         result[block.moduleName] = {};
@@ -1553,10 +1583,44 @@ function buildMergedConfig() {
   for (const key of Object.keys(result)) {
     if (Array.isArray(result[key]) && result[key].length === 0) delete result[key];
   }
+  result = pruneEmpty(result) || {};
   migrateLegacy14(result, errors);
   enforceRootWhitelist(result, errors);
 
   return { result, errors };
+}
+
+function shouldPersistFieldValue(block, name, value, spec) {
+  if (value === null || value === undefined || value === '') return false;
+  if (Array.isArray(value) && value.length === 0 && getNestedValue(block.basePayload || {}, name) === undefined) return false;
+  if (typeof value === 'object' && !Array.isArray(value) && Object.keys(value).length === 0 && getNestedValue(block.basePayload || {}, name) === undefined) return false;
+  const defaultValue = inferDefault(spec);
+  const fromBase = getNestedValue(block.basePayload || {}, name);
+  if (fromBase !== undefined) return true;
+  return JSON.stringify(value) !== JSON.stringify(defaultValue);
+}
+
+function pruneEmpty(input) {
+  if (Array.isArray(input)) {
+    const normalized = input
+      .map((item) => pruneEmpty(item))
+      .filter((item) => item !== undefined);
+    return normalized.length ? normalized : undefined;
+  }
+  if (!input || typeof input !== 'object') {
+    if (input === '' || input === null) return undefined;
+    return input;
+  }
+
+  const output = {};
+  Object.entries(input).forEach(([key, value]) => {
+    if (key.startsWith('__')) return;
+    const normalized = pruneEmpty(value);
+    if (normalized === undefined) return;
+    output[key] = normalized;
+  });
+
+  return Object.keys(output).length ? output : undefined;
 }
 
 function stripJsonComments(text) {
