@@ -1,0 +1,39 @@
+{
+  "module": "certificate",
+  "source": "configuration/certificate",
+  "page_count": 1,
+  "pages": [
+    {
+      "page_id": "certificate",
+      "source_path": "configuration/certificate/index.html",
+      "title": "Certificate",
+      "fields": {
+        "store": {
+          "type": "array_object",
+          "required": false,
+          "description": "The default X509 trusted CA certificate list."
+        },
+        "certificate": {
+          "type": "array_object",
+          "required": false,
+          "description": "The certificate line array to trust, in PEM format."
+        },
+        "certificate_path": {
+          "type": "string",
+          "required": false,
+          "description": "Will be automatically reloaded if file modified."
+        },
+        "certificate_directory_path": {
+          "type": "string",
+          "required": false,
+          "description": "Will be automatically reloaded if file modified."
+        }
+      },
+      "section_titles": [
+        "Structure",
+        "Fields"
+      ],
+      "validations": []
+    }
+  ]
+}

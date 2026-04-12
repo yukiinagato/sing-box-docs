@@ -1,0 +1,1149 @@
+{
+  "module": "outbound",
+  "source": "configuration/outbound",
+  "page_count": 21,
+  "pages": [
+    {
+      "page_id": "anytls",
+      "source_path": "configuration/outbound/anytls/index.html",
+      "title": "AnyTLS",
+      "fields": {
+        "server": {
+          "type": "string",
+          "required": true,
+          "description": "Required The server address."
+        },
+        "server_port": {
+          "type": "integer",
+          "required": true,
+          "description": "Required The server port."
+        },
+        "password": {
+          "type": "string",
+          "required": true,
+          "description": "Required The AnyTLS password."
+        },
+        "idle_session_check_interval": {
+          "type": "integer",
+          "required": false,
+          "default": "30s",
+          "description": "Interval checking for idle sessions."
+        },
+        "idle_session_timeout": {
+          "type": "integer",
+          "required": false,
+          "default": "30s",
+          "description": "In the check, close sessions that have been idle for longer than this."
+        },
+        "min_idle_session": {
+          "type": "integer",
+          "required": false,
+          "default": "n=0",
+          "description": "In the check, at least the first n idle sessions are kept open."
+        },
+        "tls": {
+          "type": "boolean",
+          "required": true,
+          "description": "Required TLS configuration, see TLS."
+        }
+      },
+      "section_titles": [
+        "Structure",
+        "Fields",
+        "Dial Fields"
+      ],
+      "validations": []
+    },
+    {
+      "page_id": "block",
+      "source_path": "configuration/outbound/block/index.html",
+      "title": "Block",
+      "fields": {},
+      "section_titles": [
+        "Structure",
+        "Fields"
+      ],
+      "validations": []
+    },
+    {
+      "page_id": "direct",
+      "source_path": "configuration/outbound/direct/index.html",
+      "title": "Direct",
+      "fields": {
+        "override_address": {
+          "type": "string",
+          "required": false,
+          "deprecated": true,
+          "description": "Deprecated in sing-box 1.11.0 Destination override fields are deprecated in sing-box 1.11.0 and will be removed in sing-box 1.13.0, see Migration."
+        },
+        "override_port": {
+          "type": "integer",
+          "required": false,
+          "deprecated": true,
+          "description": "Deprecated in sing-box 1.11.0 Destination override fields are deprecated in sing-box 1.11.0 and will be removed in sing-box 1.13.0, see Migration."
+        }
+      },
+      "section_titles": [
+        "Structure",
+        "Fields",
+        "Dial Fields"
+      ],
+      "validations": []
+    },
+    {
+      "page_id": "dns",
+      "source_path": "configuration/outbound/dns/index.html",
+      "title": "DNS",
+      "fields": {},
+      "section_titles": [
+        "Structure",
+        "Fields"
+      ],
+      "validations": []
+    },
+    {
+      "page_id": "http",
+      "source_path": "configuration/outbound/http/index.html",
+      "title": "HTTP",
+      "fields": {
+        "server": {
+          "type": "string",
+          "required": true,
+          "description": "Required The server address."
+        },
+        "server_port": {
+          "type": "integer",
+          "required": true,
+          "description": "Required The server port."
+        },
+        "username": {
+          "type": "string",
+          "required": false,
+          "description": "Basic authorization username."
+        },
+        "password": {
+          "type": "string",
+          "required": false,
+          "description": "Basic authorization password."
+        },
+        "path": {
+          "type": "string",
+          "required": false,
+          "description": "Path of HTTP request."
+        },
+        "headers": {
+          "type": "string",
+          "required": false,
+          "description": "Extra headers of HTTP request."
+        },
+        "tls": {
+          "type": "boolean",
+          "required": false,
+          "description": "TLS configuration, see TLS."
+        }
+      },
+      "section_titles": [
+        "Structure",
+        "Fields",
+        "Dial Fields"
+      ],
+      "validations": []
+    },
+    {
+      "page_id": "hysteria",
+      "source_path": "configuration/outbound/hysteria/index.html",
+      "title": "Hysteria",
+      "fields": {
+        "server": {
+          "type": "string",
+          "required": true,
+          "description": "Required The server address."
+        },
+        "server_port": {
+          "type": "integer",
+          "required": true,
+          "description": "Required The server port."
+        },
+        "server_ports": {
+          "type": "array_integer",
+          "required": false,
+          "since": "1.12.0",
+          "description": "Conflicts with server_port."
+        },
+        "hop_interval": {
+          "type": "integer",
+          "required": false,
+          "since": "1.12.0",
+          "description": "30s is used by default."
+        },
+        "up, down": {
+          "type": "string",
+          "required": true,
+          "description": "Required Format: [Integer] [Unit] e.g."
+        },
+        "up_mbps, down_mbps": {
+          "type": "string",
+          "required": true,
+          "description": "Required up, down in Mbps."
+        },
+        "obfs": {
+          "type": "string",
+          "required": false,
+          "description": "Obfuscated password."
+        },
+        "auth": {
+          "type": "string",
+          "required": false,
+          "description": "Authentication password, in base64."
+        },
+        "auth_str": {
+          "type": "string",
+          "required": false,
+          "description": "Authentication password."
+        },
+        "recv_window_conn": {
+          "type": "string",
+          "required": false,
+          "description": "The QUIC stream-level flow control window for receiving data."
+        },
+        "recv_window": {
+          "type": "string",
+          "required": false,
+          "description": "The QUIC connection-level flow control window for receiving data."
+        },
+        "disable_mtu_discovery": {
+          "type": "boolean",
+          "required": false,
+          "description": "Disables Path MTU Discovery (RFC 8899)."
+        },
+        "network": {
+          "type": "string",
+          "required": false,
+          "allowedValues": [
+            "tcp",
+            "udp"
+          ],
+          "description": "Enabled network One of tcp udp."
+        },
+        "tls": {
+          "type": "boolean",
+          "required": true,
+          "description": "Required TLS configuration, see TLS."
+        }
+      },
+      "section_titles": [
+        "Structure",
+        "Fields",
+        "Dial Fields"
+      ],
+      "validations": []
+    },
+    {
+      "page_id": "hysteria2",
+      "source_path": "configuration/outbound/hysteria2/index.html",
+      "title": "Hysteria2",
+      "fields": {
+        "server": {
+          "type": "string",
+          "required": true,
+          "description": "Required The server address."
+        },
+        "server_port": {
+          "type": "integer",
+          "required": true,
+          "description": "Required The server port."
+        },
+        "server_ports": {
+          "type": "array_integer",
+          "required": false,
+          "since": "1.11.0",
+          "description": "Conflicts with server_port."
+        },
+        "hop_interval": {
+          "type": "integer",
+          "required": false,
+          "since": "1.11.0",
+          "description": "30s is used by default."
+        },
+        "hop_interval_max": {
+          "type": "integer",
+          "required": false,
+          "since": "1.14.0",
+          "description": "If set, the actual hop interval will be randomly chosen between hop_interval and hop_interval_max."
+        },
+        "up_mbps, down_mbps": {
+          "type": "string",
+          "required": false,
+          "description": "Max bandwidth, in Mbps."
+        },
+        "obfs.type": {
+          "type": "string",
+          "required": false,
+          "dependencies": [
+            {
+              "type": "requires",
+              "field": "salamander"
+            }
+          ],
+          "description": "QUIC traffic obfuscator type, only available with salamander."
+        },
+        "obfs.password": {
+          "type": "string",
+          "required": false,
+          "description": "QUIC traffic obfuscator password."
+        },
+        "password": {
+          "type": "string",
+          "required": false,
+          "description": "Authentication password."
+        },
+        "network": {
+          "type": "string",
+          "required": false,
+          "allowedValues": [
+            "tcp",
+            "udp"
+          ],
+          "description": "Enabled network One of tcp udp."
+        },
+        "tls": {
+          "type": "boolean",
+          "required": true,
+          "description": "Required TLS configuration, see TLS."
+        },
+        "bbr_profile": {
+          "type": "string",
+          "required": false,
+          "allowedValues": [
+            "aggressive",
+            "conservative",
+            "standard"
+          ],
+          "since": "1.14.0",
+          "description": "standard is used by default."
+        },
+        "brutal_debug": {
+          "type": "boolean",
+          "required": false,
+          "description": "Enable debug information logging for Hysteria Brutal CC."
+        }
+      },
+      "section_titles": [
+        "Structure",
+        "Fields",
+        "Dial Fields"
+      ],
+      "validations": []
+    },
+    {
+      "page_id": "outbound",
+      "source_path": "configuration/outbound/index.html",
+      "title": "Outbound",
+      "fields": {
+        "tag": {
+          "type": "string",
+          "required": false,
+          "description": "The tag of the outbound."
+        },
+        "Outbounds that support IP connection": {
+          "type": "integer",
+          "required": false,
+          "description": "WireGuard"
+        }
+      },
+      "section_titles": [
+        "Structure",
+        "Fields",
+        "Features"
+      ],
+      "validations": []
+    },
+    {
+      "page_id": "naive",
+      "source_path": "configuration/outbound/naive/index.html",
+      "title": "Naive",
+      "fields": {
+        "server": {
+          "type": "string",
+          "required": true,
+          "description": "Required The server address."
+        },
+        "server_port": {
+          "type": "integer",
+          "required": true,
+          "description": "Required The server port."
+        },
+        "username": {
+          "type": "string",
+          "required": false,
+          "description": "Authentication username."
+        },
+        "password": {
+          "type": "string",
+          "required": false,
+          "description": "Authentication password."
+        },
+        "insecure_concurrency": {
+          "type": "boolean",
+          "required": false,
+          "description": "Number of concurrent tunnel connections."
+        },
+        "extra_headers": {
+          "type": "string",
+          "required": false,
+          "description": "Extra headers to send in HTTP requests."
+        },
+        "udp_over_tcp": {
+          "type": "string",
+          "required": false,
+          "description": "UDP over TCP protocol settings."
+        },
+        "quic": {
+          "type": "string",
+          "required": false,
+          "description": "Use QUIC instead of HTTP/2."
+        },
+        "quic_congestion_control": {
+          "type": "string",
+          "required": false,
+          "description": "QUIC congestion control algorithm."
+        },
+        "tls": {
+          "type": "boolean",
+          "required": true,
+          "description": "Required TLS configuration, see TLS."
+        }
+      },
+      "section_titles": [
+        "Structure",
+        "Fields",
+        "Dial Fields"
+      ],
+      "validations": []
+    },
+    {
+      "page_id": "selector",
+      "source_path": "configuration/outbound/selector/index.html",
+      "title": "Selector",
+      "fields": {
+        "outbounds": {
+          "type": "array_object",
+          "required": true,
+          "description": "Required List of outbound tags to select."
+        },
+        "default": {
+          "type": "string",
+          "required": false,
+          "description": "The default outbound tag."
+        },
+        "interrupt_exist_connections": {
+          "type": "string",
+          "required": false,
+          "description": "Interrupt existing connections when the selected outbound has changed."
+        }
+      },
+      "section_titles": [
+        "Structure",
+        "Fields"
+      ],
+      "validations": []
+    },
+    {
+      "page_id": "shadowsocks",
+      "source_path": "configuration/outbound/shadowsocks/index.html",
+      "title": "Shadowsocks",
+      "fields": {
+        "server": {
+          "type": "string",
+          "required": true,
+          "description": "Required The server address."
+        },
+        "server_port": {
+          "type": "integer",
+          "required": true,
+          "description": "Required The server port."
+        },
+        "method": {
+          "type": "string",
+          "required": true,
+          "description": "Required Encryption methods: 2022-blake3-aes-128-gcm 2022-blake3-aes-256-gcm 2022-blake3-chacha20-poly1305 none aes-128-gcm aes-192-gcm aes-256-gcm chacha20-ietf-poly1305 xchacha20-ietf-poly1305 Legacy encryption methods: aes-128-ctr aes-192-ctr aes-256-ctr aes-128-cfb aes-192-cfb aes-256-cfb rc4-md5 chacha20-ietf xchacha20"
+        },
+        "password": {
+          "type": "string",
+          "required": true,
+          "description": "Required The shadowsocks password."
+        },
+        "plugin": {
+          "type": "string",
+          "required": false,
+          "description": "Shadowsocks SIP003 plugin, implemented in internal."
+        },
+        "plugin_opts": {
+          "type": "object",
+          "required": false,
+          "description": "Shadowsocks SIP003 plugin options."
+        },
+        "network": {
+          "type": "string",
+          "required": false,
+          "allowedValues": [
+            "tcp",
+            "udp"
+          ],
+          "description": "Enabled network One of tcp udp."
+        },
+        "udp_over_tcp": {
+          "type": "object",
+          "required": false,
+          "dependencies": [
+            {
+              "type": "conflicts_with",
+              "field": "multiplex"
+            }
+          ],
+          "description": "UDP over TCP configuration."
+        },
+        "multiplex": {
+          "type": "string",
+          "required": false,
+          "description": "See Multiplex for details."
+        }
+      },
+      "section_titles": [
+        "Structure",
+        "Fields",
+        "Dial Fields"
+      ],
+      "validations": []
+    },
+    {
+      "page_id": "shadowtls",
+      "source_path": "configuration/outbound/shadowtls/index.html",
+      "title": "ShadowTLS",
+      "fields": {
+        "server": {
+          "type": "string",
+          "required": true,
+          "description": "Required The server address."
+        },
+        "server_port": {
+          "type": "integer",
+          "required": true,
+          "description": "Required The server port."
+        },
+        "version": {
+          "type": "string",
+          "required": false,
+          "description": "ShadowTLS protocol version."
+        },
+        "password": {
+          "type": "string",
+          "required": false,
+          "description": "Set password."
+        },
+        "tls": {
+          "type": "boolean",
+          "required": true,
+          "description": "Required TLS configuration, see TLS."
+        }
+      },
+      "section_titles": [
+        "Structure",
+        "Fields",
+        "Dial Fields"
+      ],
+      "validations": []
+    },
+    {
+      "page_id": "socks",
+      "source_path": "configuration/outbound/socks/index.html",
+      "title": "SOCKS",
+      "fields": {
+        "server": {
+          "type": "string",
+          "required": true,
+          "description": "Required The server address."
+        },
+        "server_port": {
+          "type": "integer",
+          "required": true,
+          "description": "Required The server port."
+        },
+        "version": {
+          "type": "string",
+          "required": false,
+          "allowedValues": [
+            "4",
+            "4a",
+            "5"
+          ],
+          "description": "The SOCKS version, one of 4 4a 5."
+        },
+        "username": {
+          "type": "string",
+          "required": false,
+          "description": "SOCKS username."
+        },
+        "password": {
+          "type": "string",
+          "required": false,
+          "description": "SOCKS5 password."
+        },
+        "network": {
+          "type": "string",
+          "required": false,
+          "allowedValues": [
+            "tcp",
+            "udp"
+          ],
+          "description": "Enabled network One of tcp udp."
+        },
+        "udp_over_tcp": {
+          "type": "string",
+          "required": false,
+          "description": "UDP over TCP protocol settings."
+        }
+      },
+      "section_titles": [
+        "Structure",
+        "Fields",
+        "Dial Fields"
+      ],
+      "validations": []
+    },
+    {
+      "page_id": "ssh",
+      "source_path": "configuration/outbound/ssh/index.html",
+      "title": "SSH",
+      "fields": {
+        "server": {
+          "type": "string",
+          "required": true,
+          "description": "Required Server address."
+        },
+        "server_port": {
+          "type": "integer",
+          "required": false,
+          "description": "Server port."
+        },
+        "user": {
+          "type": "string",
+          "required": false,
+          "description": "SSH user, root will be used if empty."
+        },
+        "password": {
+          "type": "string",
+          "required": false,
+          "description": "Password."
+        },
+        "private_key": {
+          "type": "string",
+          "required": false,
+          "description": "Private key."
+        },
+        "private_key_path": {
+          "type": "string",
+          "required": false,
+          "description": "Private key path."
+        },
+        "private_key_passphrase": {
+          "type": "string",
+          "required": false,
+          "description": "Private key passphrase."
+        },
+        "host_key": {
+          "type": "string",
+          "required": false,
+          "description": "Host key."
+        },
+        "host_key_algorithms": {
+          "type": "string",
+          "required": false,
+          "description": "Host key algorithms."
+        },
+        "client_version": {
+          "type": "string",
+          "required": false,
+          "description": "Client version."
+        }
+      },
+      "section_titles": [
+        "Structure",
+        "Fields",
+        "Dial Fields"
+      ],
+      "validations": []
+    },
+    {
+      "page_id": "tor",
+      "source_path": "configuration/outbound/tor/index.html",
+      "title": "Tor",
+      "fields": {
+        "executable_path": {
+          "type": "string",
+          "required": false,
+          "description": "The path to the Tor executable."
+        },
+        "extra_args": {
+          "type": "array_object",
+          "required": false,
+          "description": "List of extra arguments passed to the Tor instance when started."
+        },
+        "data_directory": {
+          "type": "string",
+          "required": false,
+          "description": "Recommended The data directory of Tor."
+        },
+        "torrc": {
+          "type": "object",
+          "required": false,
+          "description": "Map of torrc options."
+        }
+      },
+      "section_titles": [
+        "Structure",
+        "Fields",
+        "Dial Fields"
+      ],
+      "validations": []
+    },
+    {
+      "page_id": "trojan",
+      "source_path": "configuration/outbound/trojan/index.html",
+      "title": "Trojan",
+      "fields": {
+        "server": {
+          "type": "string",
+          "required": true,
+          "description": "Required The server address."
+        },
+        "server_port": {
+          "type": "integer",
+          "required": true,
+          "description": "Required The server port."
+        },
+        "password": {
+          "type": "string",
+          "required": true,
+          "description": "Required The Trojan password."
+        },
+        "network": {
+          "type": "string",
+          "required": false,
+          "allowedValues": [
+            "tcp",
+            "udp"
+          ],
+          "description": "Enabled network One of tcp udp."
+        },
+        "tls": {
+          "type": "boolean",
+          "required": false,
+          "description": "TLS configuration, see TLS."
+        },
+        "multiplex": {
+          "type": "string",
+          "required": false,
+          "description": "See Multiplex for details."
+        },
+        "transport": {
+          "type": "integer",
+          "required": false,
+          "description": "V2Ray Transport configuration, see V2Ray Transport."
+        }
+      },
+      "section_titles": [
+        "Structure",
+        "Fields",
+        "Dial Fields"
+      ],
+      "validations": []
+    },
+    {
+      "page_id": "tuic",
+      "source_path": "configuration/outbound/tuic/index.html",
+      "title": "TUIC",
+      "fields": {
+        "server": {
+          "type": "string",
+          "required": true,
+          "description": "Required The server address."
+        },
+        "server_port": {
+          "type": "integer",
+          "required": true,
+          "description": "Required The server port."
+        },
+        "uuid": {
+          "type": "integer",
+          "required": true,
+          "description": "Required TUIC user uuid"
+        },
+        "password": {
+          "type": "string",
+          "required": false,
+          "description": "TUIC user password"
+        },
+        "congestion_control": {
+          "type": "string",
+          "required": false,
+          "allowedValues": [
+            "bbr cubic is used by default",
+            "cubic",
+            "new_reno"
+          ],
+          "description": "QUIC congestion control algorithm One of: cubic, new_reno, bbr cubic is used by default."
+        },
+        "udp_relay_mode": {
+          "type": "string",
+          "required": false,
+          "dependencies": [
+            {
+              "type": "conflicts_with",
+              "field": "udp_over_stream"
+            }
+          ],
+          "description": "UDP packet relay mode Mode Description native native UDP characteristics quic lossless UDP relay using QUIC streams, additional overhead is introduced native is used by default."
+        },
+        "udp_over_stream": {
+          "type": "string",
+          "required": false,
+          "dependencies": [
+            {
+              "type": "conflicts_with",
+              "field": "udp_relay_mode"
+            }
+          ],
+          "description": "This is the TUIC port of the UDP over TCP protocol, designed to provide a QUIC stream based UDP relay mode that TUIC does not provide."
+        },
+        "network": {
+          "type": "string",
+          "required": false,
+          "allowedValues": [
+            "tcp",
+            "udp"
+          ],
+          "description": "Enabled network One of tcp udp."
+        },
+        "tls": {
+          "type": "boolean",
+          "required": true,
+          "description": "Required TLS configuration, see TLS."
+        }
+      },
+      "section_titles": [
+        "Structure",
+        "Fields",
+        "Dial Fields"
+      ],
+      "validations": []
+    },
+    {
+      "page_id": "urltest",
+      "source_path": "configuration/outbound/urltest/index.html",
+      "title": "URLTest",
+      "fields": {
+        "outbounds": {
+          "type": "array_object",
+          "required": true,
+          "description": "Required List of outbound tags to test."
+        },
+        "url": {
+          "type": "string",
+          "required": false,
+          "description": "The URL to test."
+        },
+        "interval": {
+          "type": "integer",
+          "required": false,
+          "description": "The test interval."
+        },
+        "tolerance": {
+          "type": "string",
+          "required": false,
+          "description": "The test tolerance in milliseconds."
+        },
+        "idle_timeout": {
+          "type": "integer",
+          "required": false,
+          "description": "The idle timeout."
+        },
+        "interrupt_exist_connections": {
+          "type": "string",
+          "required": false,
+          "description": "Interrupt existing connections when the selected outbound has changed."
+        }
+      },
+      "section_titles": [
+        "Structure",
+        "Fields"
+      ],
+      "validations": []
+    },
+    {
+      "page_id": "vless",
+      "source_path": "configuration/outbound/vless/index.html",
+      "title": "VLESS",
+      "fields": {
+        "server": {
+          "type": "string",
+          "required": true,
+          "description": "Required The server address."
+        },
+        "server_port": {
+          "type": "integer",
+          "required": true,
+          "description": "Required The server port."
+        },
+        "uuid": {
+          "type": "integer",
+          "required": true,
+          "description": "Required VLESS user id."
+        },
+        "flow": {
+          "type": "string",
+          "required": false,
+          "allowedValues": [
+            "xtls-rprx-vision"
+          ],
+          "description": "VLESS Sub-protocol."
+        },
+        "network": {
+          "type": "string",
+          "required": false,
+          "allowedValues": [
+            "tcp",
+            "udp"
+          ],
+          "description": "Enabled network One of tcp udp."
+        },
+        "tls": {
+          "type": "boolean",
+          "required": false,
+          "description": "TLS configuration, see TLS."
+        },
+        "packet_encoding": {
+          "type": "string",
+          "required": false,
+          "description": "UDP packet encoding, xudp is used by default."
+        },
+        "multiplex": {
+          "type": "string",
+          "required": false,
+          "description": "See Multiplex for details."
+        },
+        "transport": {
+          "type": "integer",
+          "required": false,
+          "description": "V2Ray Transport configuration, see V2Ray Transport."
+        }
+      },
+      "section_titles": [
+        "Structure",
+        "Fields",
+        "Dial Fields"
+      ],
+      "validations": []
+    },
+    {
+      "page_id": "vmess",
+      "source_path": "configuration/outbound/vmess/index.html",
+      "title": "VMess",
+      "fields": {
+        "server": {
+          "type": "string",
+          "required": true,
+          "description": "Required The server address."
+        },
+        "server_port": {
+          "type": "integer",
+          "required": true,
+          "description": "Required The server port."
+        },
+        "uuid": {
+          "type": "integer",
+          "required": true,
+          "description": "Required The VMess user id."
+        },
+        "security": {
+          "type": "string",
+          "required": false,
+          "description": "Encryption methods: auto none zero aes-128-gcm chacha20-poly1305 Legacy encryption methods: aes-128-ctr"
+        },
+        "alter_id": {
+          "type": "integer",
+          "required": false,
+          "description": "Alter ID Description 0 Use AEAD protocol 1 Use legacy protocol > 1 Unused, same as 1"
+        },
+        "global_padding": {
+          "type": "string",
+          "required": false,
+          "description": "Protocol parameter."
+        },
+        "authenticated_length": {
+          "type": "integer",
+          "required": false,
+          "description": "Protocol parameter."
+        },
+        "network": {
+          "type": "string",
+          "required": false,
+          "allowedValues": [
+            "tcp",
+            "udp"
+          ],
+          "description": "Enabled network One of tcp udp."
+        },
+        "tls": {
+          "type": "boolean",
+          "required": false,
+          "description": "TLS configuration, see TLS."
+        },
+        "packet_encoding": {
+          "type": "string",
+          "required": false,
+          "description": "UDP packet encoding."
+        },
+        "multiplex": {
+          "type": "string",
+          "required": false,
+          "description": "See Multiplex for details."
+        },
+        "transport": {
+          "type": "integer",
+          "required": false,
+          "description": "V2Ray Transport configuration, see V2Ray Transport."
+        }
+      },
+      "section_titles": [
+        "Structure",
+        "Fields",
+        "Dial Fields"
+      ],
+      "validations": []
+    },
+    {
+      "page_id": "wireguard",
+      "source_path": "configuration/outbound/wireguard/index.html",
+      "title": "WireGuard",
+      "fields": {
+        "server": {
+          "type": "string",
+          "required": false,
+          "dependencies": [
+            {
+              "type": "required_if",
+              "expression": "multi-peer disabled The server address"
+            }
+          ],
+          "description": "Required if multi-peer disabled The server address."
+        },
+        "server_port": {
+          "type": "integer",
+          "required": false,
+          "dependencies": [
+            {
+              "type": "required_if",
+              "expression": "multi-peer disabled The server port"
+            }
+          ],
+          "description": "Required if multi-peer disabled The server port."
+        },
+        "system_interface": {
+          "type": "string",
+          "required": false,
+          "dependencies": [
+            {
+              "type": "conflicts_with",
+              "field": "exists system interfaces"
+            }
+          ],
+          "description": "Use system interface."
+        },
+        "interface_name": {
+          "type": "string",
+          "required": false,
+          "description": "Custom interface name for system interface."
+        },
+        "gso": {
+          "type": "string",
+          "required": false,
+          "since": "1.8.0",
+          "deprecated": true,
+          "description": "Deprecated in sing-box 1.11.0 GSO will be automatically enabled when available since sing-box 1.11.0."
+        },
+        "local_address": {
+          "type": "array_object",
+          "required": true,
+          "description": "Required List of IP (v4 or v6) address prefixes to be assigned to the interface."
+        },
+        "private_key": {
+          "type": "string",
+          "required": true,
+          "description": "Required WireGuard requires base64-encoded public and private keys."
+        },
+        "peers": {
+          "type": "string",
+          "required": false,
+          "description": "Multi-peer support."
+        },
+        "peers.allowed_ips": {
+          "type": "boolean",
+          "required": false,
+          "description": "WireGuard allowed IPs."
+        },
+        "peers.reserved": {
+          "type": "string",
+          "required": false,
+          "description": "WireGuard reserved field bytes."
+        },
+        "peer_public_key": {
+          "type": "string",
+          "required": false,
+          "dependencies": [
+            {
+              "type": "required_if",
+              "expression": "multi-peer disabled WireGuard peer public key"
+            }
+          ],
+          "description": "Required if multi-peer disabled WireGuard peer public key."
+        },
+        "pre_shared_key": {
+          "type": "string",
+          "required": false,
+          "description": "WireGuard pre-shared key."
+        },
+        "reserved": {
+          "type": "string",
+          "required": false,
+          "description": "WireGuard reserved field bytes."
+        },
+        "workers": {
+          "type": "string",
+          "required": false,
+          "description": "WireGuard worker count."
+        },
+        "mtu": {
+          "type": "integer",
+          "required": false,
+          "description": "WireGuard MTU."
+        },
+        "network": {
+          "type": "string",
+          "required": false,
+          "allowedValues": [
+            "tcp",
+            "udp"
+          ],
+          "description": "Enabled network One of tcp udp."
+        }
+      },
+      "section_titles": [
+        "Structure",
+        "Fields",
+        "Dial Fields"
+      ],
+      "validations": []
+    }
+  ]
+}

@@ -1,0 +1,591 @@
+{
+  "module": "route",
+  "source": "configuration/route",
+  "page_count": 6,
+  "pages": [
+    {
+      "page_id": "geoip",
+      "source_path": "configuration/route/geoip/index.html",
+      "title": "GeoIP",
+      "fields": {
+        "path": {
+          "type": "string",
+          "required": false,
+          "description": "The path to the sing-geoip database."
+        },
+        "download_url": {
+          "type": "string",
+          "required": false,
+          "description": "The download URL of the sing-geoip database."
+        },
+        "download_detour": {
+          "type": "string",
+          "required": false,
+          "description": "The tag of the outbound to download the database."
+        }
+      },
+      "section_titles": [
+        "Structure",
+        "Fields"
+      ],
+      "validations": []
+    },
+    {
+      "page_id": "geosite",
+      "source_path": "configuration/route/geosite/index.html",
+      "title": "Geosite",
+      "fields": {
+        "path": {
+          "type": "string",
+          "required": false,
+          "description": "The path to the sing-geosite database."
+        },
+        "download_url": {
+          "type": "string",
+          "required": false,
+          "description": "The download URL of the sing-geoip database."
+        },
+        "download_detour": {
+          "type": "string",
+          "required": false,
+          "description": "The tag of the outbound to download the database."
+        }
+      },
+      "section_titles": [
+        "Structure",
+        "Fields"
+      ],
+      "validations": []
+    },
+    {
+      "page_id": "route",
+      "source_path": "configuration/route/index.html",
+      "title": "Route",
+      "fields": {
+        "rules": {
+          "type": "array_object",
+          "required": false,
+          "description": "List of Route Rule"
+        },
+        "rule_set": {
+          "type": "array_object",
+          "required": false,
+          "since": "1.8.0"
+        },
+        "final": {
+          "type": "string",
+          "required": false,
+          "description": "the first outbound will be used if empty."
+        },
+        "auto_detect_interface": {
+          "type": "string",
+          "required": false,
+          "description": "Only supported on Linux, Windows and macOS."
+        },
+        "override_android_vpn": {
+          "type": "integer",
+          "required": false,
+          "description": "Only supported on Android."
+        },
+        "default_interface": {
+          "type": "string",
+          "required": false,
+          "description": "Only supported on Linux, Windows and macOS."
+        },
+        "default_mark": {
+          "type": "integer",
+          "required": false,
+          "description": "Only supported on Linux."
+        },
+        "find_process": {
+          "type": "string",
+          "required": false,
+          "description": "Only supported on Linux, Windows, and macOS."
+        },
+        "find_neighbor": {
+          "type": "string",
+          "required": false,
+          "since": "1.14.0",
+          "description": "Enable neighbor resolution for logging when no source_mac_address or source_hostname rules exist."
+        },
+        "dhcp_lease_files": {
+          "type": "string",
+          "required": false,
+          "since": "1.14.0",
+          "description": "Custom DHCP lease file paths for hostname and MAC address resolution."
+        },
+        "default_domain_resolver": {
+          "type": "string",
+          "required": false,
+          "since": "1.12.0",
+          "description": "Can be overridden by outbound.domain_resolver."
+        },
+        "default_network_strategy": {
+          "type": "string",
+          "required": false,
+          "since": "1.11.0",
+          "description": "Takes no effect if outbound.bind_interface, outbound.inet4_bind_address or outbound.inet6_bind_address is set."
+        },
+        "default_network_type": {
+          "type": "string",
+          "required": false,
+          "since": "1.11.0"
+        },
+        "default_fallback_network_type": {
+          "type": "string",
+          "required": false,
+          "since": "1.11.0"
+        },
+        "default_fallback_delay": {
+          "type": "string",
+          "required": false,
+          "since": "1.11.0"
+        }
+      },
+      "section_titles": [
+        "Structure",
+        "Fields"
+      ],
+      "validations": []
+    },
+    {
+      "page_id": "rule",
+      "source_path": "configuration/route/rule/index.html",
+      "title": "Route Rule",
+      "fields": {
+        "inbound": {
+          "type": "string",
+          "required": false,
+          "description": "Tags of Inbound."
+        },
+        "ip_version": {
+          "type": "string",
+          "required": false,
+          "description": "4 or 6."
+        },
+        "auth_user": {
+          "type": "string",
+          "required": false,
+          "description": "Username, see each inbound for details."
+        },
+        "protocol": {
+          "type": "string",
+          "required": false,
+          "description": "Sniffed protocol, see Protocol Sniff for details."
+        },
+        "client": {
+          "type": "string",
+          "required": false,
+          "since": "1.10.0"
+        },
+        "network": {
+          "type": "string",
+          "required": false,
+          "since": "1.13.0",
+          "description": "Changes in sing-box 1.13.0 Since sing-box 1.13.0, you can match ICMP echo (ping) requests via the new icmp network."
+        },
+        "domain": {
+          "type": "string",
+          "required": false,
+          "description": "Match full domain."
+        },
+        "domain_suffix": {
+          "type": "string",
+          "required": false,
+          "description": "Match domain suffix."
+        },
+        "domain_keyword": {
+          "type": "string",
+          "required": false,
+          "description": "Match domain using keyword."
+        },
+        "domain_regex": {
+          "type": "string",
+          "required": false,
+          "description": "Match domain using regular expression."
+        },
+        "geosite": {
+          "type": "string",
+          "required": false,
+          "deprecated": true,
+          "description": "Deprecated in sing-box 1.8.0 Geosite is deprecated and will be removed in sing-box 1.12.0, check Migration."
+        },
+        "source_geoip": {
+          "type": "string",
+          "required": false,
+          "deprecated": true,
+          "description": "Deprecated in sing-box 1.8.0 GeoIP is deprecated and will be removed in sing-box 1.12.0, check Migration."
+        },
+        "geoip": {
+          "type": "string",
+          "required": false,
+          "deprecated": true,
+          "description": "Deprecated in sing-box 1.8.0 GeoIP is deprecated and will be removed in sing-box 1.12.0, check Migration."
+        },
+        "source_ip_cidr": {
+          "type": "integer",
+          "required": false,
+          "description": "Match source IP CIDR."
+        },
+        "ip_is_private": {
+          "type": "string",
+          "required": false,
+          "since": "1.8.0"
+        },
+        "ip_cidr": {
+          "type": "integer",
+          "required": false,
+          "description": "Match IP CIDR."
+        },
+        "source_ip_is_private": {
+          "type": "string",
+          "required": false,
+          "since": "1.8.0"
+        },
+        "source_port": {
+          "type": "integer",
+          "required": false,
+          "description": "Match source port."
+        },
+        "source_port_range": {
+          "type": "integer",
+          "required": false,
+          "description": "Match source port range."
+        },
+        "port": {
+          "type": "integer",
+          "required": false,
+          "description": "Match port."
+        },
+        "port_range": {
+          "type": "integer",
+          "required": false,
+          "description": "Match port range."
+        },
+        "process_name": {
+          "type": "string",
+          "required": false,
+          "description": "Only supported on Linux, Windows, and macOS."
+        },
+        "process_path": {
+          "type": "string",
+          "required": false,
+          "description": "Only supported on Linux, Windows, and macOS."
+        },
+        "process_path_regex": {
+          "type": "string",
+          "required": false,
+          "since": "1.10.0",
+          "description": "Match process path using regular expression."
+        },
+        "package_name": {
+          "type": "string",
+          "required": false,
+          "description": "Match android package name."
+        },
+        "package_name_regex": {
+          "type": "string",
+          "required": false,
+          "since": "1.14.0"
+        },
+        "user": {
+          "type": "string",
+          "required": false,
+          "description": "Only supported on Linux."
+        },
+        "user_id": {
+          "type": "integer",
+          "required": false,
+          "description": "Only supported on Linux."
+        },
+        "clash_mode": {
+          "type": "string",
+          "required": false,
+          "description": "Match Clash mode."
+        },
+        "network_type": {
+          "type": "string",
+          "required": false,
+          "allowedValues": [
+            "cellular",
+            "ethernet",
+            "other",
+            "wifi"
+          ],
+          "since": "1.11.0",
+          "description": "Match network type."
+        },
+        "network_is_expensive": {
+          "type": "string",
+          "required": false,
+          "since": "1.11.0",
+          "description": "Match if network is considered Metered (on Android) or considered expensive, such as Cellular or a Personal Hotspot (on Apple platforms)."
+        },
+        "network_is_constrained": {
+          "type": "string",
+          "required": false,
+          "since": "1.11.0",
+          "description": "Match if network is in Low Data Mode."
+        },
+        "interface_address": {
+          "type": "string",
+          "required": false,
+          "since": "1.13.0",
+          "description": "Match interface address."
+        },
+        "network_interface_address": {
+          "type": "string",
+          "required": false,
+          "since": "1.13.0",
+          "description": "Matches network interface (same values as network_type) address."
+        },
+        "default_interface_address": {
+          "type": "string",
+          "required": false,
+          "since": "1.13.0",
+          "description": "Match default interface address."
+        },
+        "wifi_ssid": {
+          "type": "integer",
+          "required": false,
+          "description": "Match WiFi SSID."
+        },
+        "wifi_bssid": {
+          "type": "integer",
+          "required": false,
+          "description": "Match WiFi BSSID."
+        },
+        "preferred_by": {
+          "type": "string",
+          "required": false,
+          "since": "1.13.0",
+          "description": "Type Match tailscale Match MagicDNS domains and peers' allowed IPs wireguard Match peers's allowed IPs"
+        },
+        "source_mac_address": {
+          "type": "string",
+          "required": false,
+          "since": "1.14.0",
+          "description": "See Neighbor Resolution for setup."
+        },
+        "source_hostname": {
+          "type": "string",
+          "required": false,
+          "since": "1.14.0",
+          "description": "See Neighbor Resolution for setup."
+        },
+        "rule_set": {
+          "type": "string",
+          "required": false,
+          "since": "1.8.0"
+        },
+        "rule_set_ipcidr_match_source": {
+          "type": "integer",
+          "required": false,
+          "since": "1.8.0",
+          "deprecated": true,
+          "description": "Make ip_cidr in rule-sets match the source IP."
+        },
+        "rule_set_ip_cidr_match_source": {
+          "type": "integer",
+          "required": false,
+          "since": "1.10.0"
+        },
+        "invert": {
+          "type": "string",
+          "required": false,
+          "description": "Invert match result."
+        },
+        "action": {
+          "type": "string",
+          "required": true,
+          "description": "Required See Rule Actions for details."
+        },
+        "outbound": {
+          "type": "string",
+          "required": false,
+          "deprecated": true,
+          "description": "Deprecated in sing-box 1.11.0 Moved to Rule Action."
+        },
+        "type": {
+          "type": "string",
+          "required": false,
+          "description": "logical"
+        },
+        "mode": {
+          "type": "string",
+          "required": true,
+          "description": "Required and or or"
+        },
+        "rules": {
+          "type": "array_object",
+          "required": true,
+          "description": "Required Included rules."
+        }
+      },
+      "section_titles": [
+        "Structure",
+        "Default Fields",
+        "Logical Fields"
+      ],
+      "validations": []
+    },
+    {
+      "page_id": "rule_action",
+      "source_path": "configuration/route/rule_action/index.html",
+      "title": "Rule Action",
+      "fields": {
+        "outbound": {
+          "type": "string",
+          "required": false,
+          "description": "Tag of target outbound."
+        },
+        "route-options Fields": {
+          "type": "object",
+          "required": false,
+          "since": "1.13.0",
+          "description": "See route-options fields below."
+        },
+        "method": {
+          "type": "string",
+          "required": false,
+          "default": "Reply with TCP RST for TCP connections, and ICMP port unreachable for UDP packets",
+          "description": "For TCP and UDP connections: default: Reply with TCP RST for TCP connections, and ICMP port unreachable for UDP packets."
+        },
+        "no_drop": {
+          "type": "object",
+          "required": false,
+          "description": "If not enabled, method will be temporarily overwritten to drop after 50 triggers in 30s."
+        },
+        "override_address": {
+          "type": "string",
+          "required": false,
+          "description": "Override the connection destination address."
+        },
+        "override_port": {
+          "type": "integer",
+          "required": false,
+          "description": "Override the connection destination port."
+        },
+        "network_strategy": {
+          "type": "string",
+          "required": false,
+          "description": "See Dial Fields for details."
+        },
+        "network_type": {
+          "type": "string",
+          "required": false,
+          "description": "See Dial Fields for details."
+        },
+        "fallback_network_type": {
+          "type": "string",
+          "required": false,
+          "description": "See Dial Fields for details."
+        },
+        "fallback_delay": {
+          "type": "string",
+          "required": false,
+          "description": "See Dial Fields for details."
+        },
+        "udp_disable_domain_unmapping": {
+          "type": "boolean",
+          "required": false,
+          "description": "If enabled, for UDP proxy requests addressed to a domain, the original packet address will be sent in the response instead of the mapped domain."
+        },
+        "udp_connect": {
+          "type": "array_object",
+          "required": false,
+          "description": "If enabled, attempts to connect UDP connection to the destination instead of listen."
+        },
+        "udp_timeout": {
+          "type": "integer",
+          "required": false,
+          "default": "Port Protocol 53 dns 123 ntp 443 quic 3478 stun",
+          "description": "Timeout for UDP connections."
+        },
+        "tls_fragment": {
+          "type": "boolean",
+          "required": false,
+          "since": "1.12.0",
+          "description": "This feature is intended to circumvent simple firewalls based on plaintext packet matching, and should not be used to circumvent real censorship."
+        },
+        "tls_fragment_fallback_delay": {
+          "type": "boolean",
+          "required": false,
+          "since": "1.12.0",
+          "description": "500ms is used by default."
+        },
+        "tls_record_fragment": {
+          "type": "boolean",
+          "required": false,
+          "since": "1.12.0",
+          "description": "sniff { \"action\": \"sniff\", \"sniffer\": [], \"timeout\": \"\" } sniff performs protocol sniffing on connections."
+        },
+        "sniffer": {
+          "type": "boolean",
+          "required": false,
+          "description": "Enabled sniffers."
+        },
+        "timeout": {
+          "type": "integer",
+          "required": false,
+          "description": "Timeout for sniffing."
+        },
+        "server": {
+          "type": "string",
+          "required": false,
+          "description": "Specifies DNS server tag to use instead of selecting through DNS routing."
+        },
+        "strategy": {
+          "type": "string",
+          "required": false,
+          "description": "DNS resolution strategy, available values are: prefer_ipv4, prefer_ipv6, ipv4_only, ipv6_only."
+        },
+        "disable_cache": {
+          "type": "boolean",
+          "required": false,
+          "since": "1.12.0"
+        },
+        "disable_optimistic_cache": {
+          "type": "boolean",
+          "required": false,
+          "since": "1.14.0"
+        },
+        "rewrite_ttl": {
+          "type": "integer",
+          "required": false,
+          "since": "1.12.0"
+        },
+        "client_subnet": {
+          "type": "string",
+          "required": false,
+          "since": "1.12.0",
+          "description": "If value is an IP address instead of prefix, /32 or /128 will be appended automatically."
+        }
+      },
+      "section_titles": [
+        "route",
+        "bypass",
+        "reject",
+        "hijack-dns",
+        "route-options",
+        "sniff",
+        "resolve"
+      ],
+      "validations": []
+    },
+    {
+      "page_id": "sniff",
+      "source_path": "configuration/route/sniff/index.html",
+      "title": "Protocol Sniff",
+      "fields": {
+        "Supported Protocols": {
+          "type": "string",
+          "required": false,
+          "description": "Network Protocol Domain Name Client TCP http Host / TCP tls Server Name / UDP quic Server Name QUIC Client Type UDP stun / / TCP/UDP dns / / TCP/UDP bittorrent / / UDP dtls / / TCP ssh / SSH Client Name TCP rdp / / UDP ntp / / QUIC Client Type Chromium/Cronet chromium Safari/Apple Network API safari Firefox / uquic firefox firefox quic-go / uquic chrome quic-go"
+        }
+      },
+      "section_titles": [],
+      "validations": []
+    }
+  ]
+}

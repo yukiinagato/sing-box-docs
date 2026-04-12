@@ -1,0 +1,48 @@
+{
+  "module": "log",
+  "source": "configuration/log",
+  "page_count": 1,
+  "pages": [
+    {
+      "page_id": "log",
+      "source_path": "configuration/log/index.html",
+      "title": "Log",
+      "fields": {
+        "disabled": {
+          "type": "boolean",
+          "required": false,
+          "description": "Disable logging, no output after start."
+        },
+        "level": {
+          "type": "string",
+          "required": false,
+          "allowedValues": [
+            "debug",
+            "error",
+            "fatal",
+            "info",
+            "panic",
+            "trace",
+            "warn"
+          ],
+          "description": "Log level."
+        },
+        "output": {
+          "type": "string",
+          "required": false,
+          "description": "Output file path."
+        },
+        "timestamp": {
+          "type": "string",
+          "required": false,
+          "description": "Add time to each line."
+        }
+      },
+      "section_titles": [
+        "Structure",
+        "Fields"
+      ],
+      "validations": []
+    }
+  ]
+}

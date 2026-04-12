@@ -1,0 +1,280 @@
+{
+  "module": "rule-set",
+  "source": "configuration/rule-set",
+  "page_count": 4,
+  "pages": [
+    {
+      "page_id": "adguard",
+      "source_path": "configuration/rule-set/adguard/index.html",
+      "title": "AdGuard DNS Filer",
+      "fields": {
+        "Basic rule syntax": {
+          "type": "string",
+          "required": false,
+          "description": "Syntax Supported @@ \\|\\| \\| ^ *"
+        },
+        "Host syntax": {
+          "type": "string",
+          "required": false,
+          "description": "Syntax Example Supported Scheme https:// Ignored Domain Host example.org IP Host 1.1.1.1, 10.0.0."
+        },
+        "Modifier syntax": {
+          "type": "string",
+          "required": false,
+          "description": "Modifier Supported $important $dnsrewrite=0.0.0.0 Ignored Any other modifiers Hosts Only items with 0.0.0.0 IP addresses will be accepted."
+        }
+      },
+      "section_titles": [
+        "AdGuard Filter",
+        "Hosts",
+        "Simple"
+      ],
+      "validations": []
+    },
+    {
+      "page_id": "headless-rule",
+      "source_path": "configuration/rule-set/headless-rule/index.html",
+      "title": "Headless Rule",
+      "fields": {
+        "query_type": {
+          "type": "array_object",
+          "required": false,
+          "description": "Changes in sing-box 1.14.0 When a DNS rule references this rule-set, this field now also applies when the DNS rule is matched from an internal domain resolution that does not target a specific DNS server."
+        },
+        "network": {
+          "type": "string",
+          "required": false,
+          "description": "tcp or udp."
+        },
+        "domain": {
+          "type": "string",
+          "required": false,
+          "description": "Match full domain."
+        },
+        "domain_suffix": {
+          "type": "string",
+          "required": false,
+          "description": "Match domain suffix."
+        },
+        "domain_keyword": {
+          "type": "string",
+          "required": false,
+          "description": "Match domain using keyword."
+        },
+        "domain_regex": {
+          "type": "string",
+          "required": false,
+          "description": "Match domain using regular expression."
+        },
+        "source_ip_cidr": {
+          "type": "integer",
+          "required": false,
+          "description": "Match source IP CIDR."
+        },
+        "ip_cidr": {
+          "type": "integer",
+          "required": false,
+          "description": "ip_cidr is an alias for source_ip_cidr when rule_set_ipcidr_match_source enabled in route/DNS rules."
+        },
+        "source_port": {
+          "type": "integer",
+          "required": false,
+          "description": "Match source port."
+        },
+        "source_port_range": {
+          "type": "integer",
+          "required": false,
+          "description": "Match source port range."
+        },
+        "port": {
+          "type": "integer",
+          "required": false,
+          "description": "Match port."
+        },
+        "port_range": {
+          "type": "integer",
+          "required": false,
+          "description": "Match port range."
+        },
+        "process_name": {
+          "type": "string",
+          "required": false,
+          "description": "Only supported on Linux, Windows, and macOS."
+        },
+        "process_path": {
+          "type": "string",
+          "required": false,
+          "description": "Only supported on Linux, Windows, and macOS."
+        },
+        "process_path_regex": {
+          "type": "string",
+          "required": false,
+          "since": "1.10.0",
+          "description": "Match process path using regular expression."
+        },
+        "package_name": {
+          "type": "string",
+          "required": false,
+          "description": "Match android package name."
+        },
+        "package_name_regex": {
+          "type": "string",
+          "required": false,
+          "since": "1.14.0"
+        },
+        "network_type": {
+          "type": "string",
+          "required": false,
+          "allowedValues": [
+            "cellular",
+            "ethernet",
+            "other",
+            "wifi"
+          ],
+          "since": "1.11.0",
+          "description": "Match network type."
+        },
+        "network_is_expensive": {
+          "type": "string",
+          "required": false,
+          "since": "1.11.0",
+          "description": "Match if network is considered Metered (on Android) or considered expensive, such as Cellular or a Personal Hotspot (on Apple platforms)."
+        },
+        "network_is_constrained": {
+          "type": "string",
+          "required": false,
+          "since": "1.11.0",
+          "description": "Match if network is in Low Data Mode."
+        },
+        "network_interface_address": {
+          "type": "string",
+          "required": false,
+          "since": "1.13.0",
+          "description": "Matches network interface (same values as network_type) address."
+        },
+        "default_interface_address": {
+          "type": "string",
+          "required": false,
+          "since": "1.13.0",
+          "description": "Match default interface address."
+        },
+        "wifi_ssid": {
+          "type": "integer",
+          "required": false,
+          "description": "Only supported in graphical clients on Android and Apple platforms."
+        },
+        "wifi_bssid": {
+          "type": "integer",
+          "required": false,
+          "description": "Only supported in graphical clients on Android and Apple platforms."
+        },
+        "invert": {
+          "type": "string",
+          "required": false,
+          "description": "Invert match result."
+        },
+        "type": {
+          "type": "string",
+          "required": false,
+          "description": "logical"
+        },
+        "mode": {
+          "type": "string",
+          "required": true,
+          "description": "Required and or or"
+        },
+        "rules": {
+          "type": "array_object",
+          "required": true,
+          "description": "Required Included rules."
+        }
+      },
+      "section_titles": [
+        "Structure",
+        "Default Fields",
+        "Logical Fields"
+      ],
+      "validations": []
+    },
+    {
+      "page_id": "rule-set",
+      "source_path": "configuration/rule-set/index.html",
+      "title": "rule-set",
+      "fields": {
+        "type": {
+          "type": "string",
+          "required": true,
+          "description": "Required Type of rule-set, local or remote."
+        },
+        "tag": {
+          "type": "string",
+          "required": true,
+          "since": "1.10.0",
+          "description": "Required Tag of rule-set."
+        },
+        "rules": {
+          "type": "array_object",
+          "required": true,
+          "description": "Required List of Headless Rule."
+        },
+        "format": {
+          "type": "string",
+          "required": true,
+          "description": "Required Format of rule-set file, source or binary."
+        },
+        "path": {
+          "type": "string",
+          "required": true,
+          "description": "Required Will be automatically reloaded if file modified since sing-box 1.10.0."
+        },
+        "url": {
+          "type": "string",
+          "required": true,
+          "description": "Required Download URL of rule-set."
+        },
+        "download_detour": {
+          "type": "string",
+          "required": false,
+          "description": "Tag of the outbound to download rule-set."
+        },
+        "update_interval": {
+          "type": "integer",
+          "required": false,
+          "description": "Update interval of rule-set."
+        }
+      },
+      "section_titles": [
+        "Structure",
+        "Fields",
+        "Inline Fields",
+        "Local or Remote Fields",
+        "Local Fields",
+        "Remote Fields"
+      ],
+      "validations": []
+    },
+    {
+      "page_id": "source-format",
+      "source_path": "configuration/rule-set/source-format/index.html",
+      "title": "Source Format",
+      "fields": {
+        "version": {
+          "type": "string",
+          "required": true,
+          "description": "Required Version of rule-set."
+        },
+        "rules": {
+          "type": "array_object",
+          "required": true,
+          "description": "Required List of Headless Rule."
+        }
+      },
+      "section_titles": [
+        "Structure",
+        "Compile",
+        "Fields"
+      ],
+      "validations": []
+    }
+  ]
+}
