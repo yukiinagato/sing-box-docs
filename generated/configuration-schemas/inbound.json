@@ -559,9 +559,9 @@
           "type": "string",
           "required": false,
           "allowedValues": [
-            "all: All connections will have their destination overwritten to (servername):443",
-            "authed: Authenticated connections will have their destination overwritten to (servername):443",
-            "off: (default) Disabled."
+            "all",
+            "authed",
+            "off"
           ],
           "since": "1.12.0",
           "description": "authed: Authenticated connections will have their destination overwritten to (servername):443 all: All connections will have their destination overwritten to (servername):443 Additionally, connections matching handshake_for_server_name are not affected."
