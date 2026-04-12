@@ -615,20 +615,23 @@ function renderLibrary() {
 }
 
 function createBlock(moduleName, page, preset = {}) {
+  const fields = structuredClone(page.fields || {});
   const values = {};
   const basePayload = {};
   const secureDefaults = state.sharedDefs?.ui_secure_defaults || {};
-  for (const [field, spec] of Object.entries(page.fields || {})) {
+  for (const [field, spec] of Object.entries(fields)) {
     values[field] = inferDefault(spec);
     if (Object.hasOwn(secureDefaults, field) && (values[field] === null || values[field] === '' || values[field] === false)) {
       values[field] = secureDefaults[field];
       basePayload[field] = secureDefaults[field];
     }
   }
+  hydrateKnownFieldsFromPayload(values, fields, preset);
+  extendFieldsWithUnknownPayload(fields, values, preset);
   Object.entries(preset).forEach(([key, val]) => {
     if (key === '__title') return;
     basePayload[key] = val;
-    if (Object.hasOwn(values, key)) values[key] = val;
+    if (Object.hasOwn(values, key)) values[key] = structuredClone(val);
   });
   return {
     id: crypto.randomUUID(),
@@ -638,11 +641,42 @@ function createBlock(moduleName, page, preset = {}) {
     pageDescription: page.description || '',
     sourcePath: page.source_path,
     active: true,
-    fields: page.fields || {},
+    fields,
     values,
     basePayload,
     parentId: moduleName === 'shared' ? findPreferredSharedParentId() : null,
   };
+}
+
+function hydrateKnownFieldsFromPayload(values, fields, payload) {
+  if (!payload || typeof payload !== 'object') return;
+  Object.keys(fields || {}).forEach((path) => {
+    const incoming = getNestedValue(payload, path);
+    if (incoming !== undefined) setNestedValue(values, path, structuredClone(incoming));
+  });
+}
+
+function extendFieldsWithUnknownPayload(fields, values, payload) {
+  if (!payload || typeof payload !== 'object') return;
+  Object.entries(payload).forEach(([key, val]) => {
+    if (key.startsWith('__') || Object.hasOwn(fields, key)) return;
+    if (typeof val === 'function') return;
+    fields[key] = inferSpecFromValue(val);
+    values[key] = structuredClone(val);
+  });
+}
+
+function inferSpecFromValue(value) {
+  if (Array.isArray(value)) {
+    const first = value.find((item) => item !== null && item !== undefined);
+    if (typeof first === 'number') return { type: 'array_integer', description: '逆向導入：自動識別陣列字段' };
+    if (first && typeof first === 'object') return { type: 'array_object', description: '逆向導入：自動識別陣列字段' };
+    return { type: 'array_string', description: '逆向導入：自動識別陣列字段' };
+  }
+  if (typeof value === 'boolean') return { type: 'boolean', description: '逆向導入：自動識別字段' };
+  if (typeof value === 'number') return { type: 'integer', description: '逆向導入：自動識別字段' };
+  if (value && typeof value === 'object') return { type: 'object', description: '逆向導入：保留原始對象' };
+  return { type: 'string', description: '逆向導入：自動識別字段' };
 }
 
 function findPreferredSharedParentId() {
@@ -749,6 +783,7 @@ function pushSharedBlocksFromParent(parentPayload, sharedTarget) {
 
 function syncUIFromCurrentConfig(config) {
   if (!config || typeof config !== 'object') return;
+  pushSingletonRootBlocks(config);
   const inbounds = Array.isArray(config.inbounds) ? config.inbounds : [];
   const outbounds = Array.isArray(config.outbounds) ? config.outbounds : [];
   const dnsServers = Array.isArray(config.dns?.servers) ? config.dns.servers : [];
@@ -770,16 +805,37 @@ function syncUIFromCurrentConfig(config) {
     pushBlockFromPayload('dns', server, server?.type || 'server', 'DNS Server');
   });
   dnsRules.forEach((rule) => {
-    pushBlockFromPayload('dns', rule, 'rule', 'DNS Rule');
+    const preferred = rule?.action ? 'rule_action' : 'rule';
+    pushBlockFromPayload('dns', rule, preferred, 'DNS Rule');
   });
   routeRules.forEach((rule) => {
-    pushBlockFromPayload('route', rule, 'rule', 'Routing Rule');
+    const preferred = rule?.action ? 'rule_action' : 'rule';
+    pushBlockFromPayload('route', rule, preferred, 'Routing Rule');
   });
   endpoints.forEach((endpoint) => {
     pushBlockFromPayload('endpoint', endpoint, endpoint?.type || '');
   });
   services.forEach((service) => {
     pushBlockFromPayload('service', service, service?.type || '');
+  });
+}
+
+function pushSingletonRootBlocks(config) {
+  const singletonModules = ['log', 'experimental', 'dns', 'route', 'ntp', 'certificate'];
+  singletonModules.forEach((moduleName) => {
+    const payload = config[moduleName];
+    if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return;
+    const rootPayload = structuredClone(payload);
+    if (moduleName === 'dns') {
+      delete rootPayload.servers;
+      delete rootPayload.rules;
+    }
+    if (moduleName === 'route') {
+      delete rootPayload.rules;
+    }
+    if (Object.keys(rootPayload).length === 0) return;
+    const preferredPage = moduleName === 'dns' ? 'dns' : (moduleName === 'route' ? 'route' : moduleName);
+    pushBlockFromPayload(moduleName, rootPayload, preferredPage, preferredPage.toUpperCase());
   });
 }
 
@@ -1169,6 +1225,17 @@ function shouldRenderField(block, fieldName) {
   if (String(fieldName).startsWith('tls.') && fieldName !== 'tls.enabled') {
     return getNestedValue(block.values, 'tls.enabled') === true;
   }
+  if (block.moduleName === 'dns' && (block.pageId === 'rule' || block.pageId === 'rule_action')) {
+    const hasAction = Boolean(getNestedValue(block.values, 'action'));
+    const hasServer = Boolean(getNestedValue(block.values, 'server'));
+    if (fieldName === 'server') return !hasAction || hasServer;
+    if (fieldName === 'action' || fieldName === 'method') return hasAction || !hasServer;
+  }
+  if (block.moduleName === 'route' && (block.pageId === 'rule' || block.pageId === 'rule_action')) {
+    const hasAction = Boolean(getNestedValue(block.values, 'action'));
+    const hasOutbound = Boolean(getNestedValue(block.values, 'outbound'));
+    if (fieldName === 'outbound') return !hasAction || hasOutbound;
+  }
   return true;
 }
 
@@ -1460,9 +1527,11 @@ function buildMergedConfig() {
       if (!result[bucket] || typeof result[bucket] !== 'object' || Array.isArray(result[bucket])) result[bucket] = {};
       Object.assign(result[bucket], payload);
       if (!Array.isArray(result[bucket].rules)) result[bucket].rules = [];
-    } else if (block.moduleName === 'log') {
-      if (!result.log || typeof result.log !== 'object' || Array.isArray(result.log)) result.log = {};
-      Object.assign(result.log, payload);
+    } else if (['log', 'experimental', 'dns', 'route', 'ntp', 'certificate'].includes(block.moduleName)) {
+      if (!result[block.moduleName] || typeof result[block.moduleName] !== 'object' || Array.isArray(result[block.moduleName])) {
+        result[block.moduleName] = {};
+      }
+      Object.assign(result[block.moduleName], payload);
     } else if (block.moduleName === 'shared') {
       const target = payloadByBlockId.get(block.parentId);
       const nestedKey = SHARED_PAGE_TO_PROPERTY[block.pageId] || block.pageId;
@@ -1488,6 +1557,62 @@ function buildMergedConfig() {
   enforceRootWhitelist(result, errors);
 
   return { result, errors };
+}
+
+function stripJsonComments(text) {
+  let out = '';
+  let inString = false;
+  let escaped = false;
+  let inLineComment = false;
+  let inBlockComment = false;
+  for (let i = 0; i < text.length; i += 1) {
+    const ch = text[i];
+    const next = text[i + 1];
+    if (inLineComment) {
+      if (ch === '\n') {
+        inLineComment = false;
+        out += ch;
+      }
+      continue;
+    }
+    if (inBlockComment) {
+      if (ch === '*' && next === '/') {
+        inBlockComment = false;
+        i += 1;
+      }
+      continue;
+    }
+    if (!inString && ch === '/' && next === '/') {
+      inLineComment = true;
+      i += 1;
+      continue;
+    }
+    if (!inString && ch === '#') {
+      inLineComment = true;
+      continue;
+    }
+    if (!inString && ch === '/' && next === '*') {
+      inBlockComment = true;
+      i += 1;
+      continue;
+    }
+    out += ch;
+    if (ch === '"' && !escaped) inString = !inString;
+    escaped = ch === '\\' && !escaped;
+    if (ch !== '\\') escaped = false;
+  }
+  return out;
+}
+
+async function importConfig(jsonString) {
+  const raw = String(jsonString || '').trim();
+  if (!raw) return;
+  const parsed = JSON.parse(stripJsonComments(raw));
+  const normalized = await normalizeImportedConfig(parsed);
+  state.blocksData = [];
+  syncUIFromCurrentConfig(normalized);
+  renderWorkspace();
+  rerenderOutput({ refreshWorkspace: false });
 }
 
 function setPayloadValue(payload, path, value) {
@@ -1593,15 +1718,8 @@ function bindGlobalActions() {
   };
   els.importApply.onclick = async (event) => {
     event.preventDefault();
-    const raw = els.importJsonInput.value.trim();
-    if (!raw) return;
     try {
-      const parsed = JSON.parse(raw);
-      const normalized = await normalizeImportedConfig(parsed);
-      state.blocksData = [];
-      syncUIFromCurrentConfig(normalized);
-      renderWorkspace();
-      rerenderOutput({ refreshWorkspace: false });
+      await importConfig(els.importJsonInput.value);
       els.importDialog.close();
     } catch (error) {
       els.errors.hidden = false;
