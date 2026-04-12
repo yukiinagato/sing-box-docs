@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from typing import Any
 
-SUPPORTED_INBOUND_TYPES = {"socks", "http", "mixed", "tun"}
+SUPPORTED_INBOUND_TYPES = {"socks", "http", "mixed", "tun", "shadowsocks"}
 SUPPORTED_OUTBOUND_TYPES = {"direct", "block", "dns", "shadowsocks", "trojan"}
 
 
@@ -114,3 +114,73 @@ def validate_config(config: Any) -> None:
     validate_outbounds(cfg["outbounds"])
     outbound_tags = {ob["tag"] for ob in cfg["outbounds"] if isinstance(ob, dict) and isinstance(ob.get("tag"), str)}
     validate_route(cfg["route"], outbound_tags)
+
+
+def generate_tunnel_pair(
+    *,
+    server_port: int,
+    client_port: int,
+    password: str,
+    method: str = "aes-128-gcm",
+    server_host: str = "127.0.0.1",
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Generate a working server/client config pair for local E2E proxy testing."""
+    _validate_port(server_port, "server_port")
+    _validate_port(client_port, "client_port")
+    if not isinstance(password, str) or not password.strip():
+        raise ValueError("password must be a non-empty string")
+    if not isinstance(method, str) or not method.strip():
+        raise ValueError("method must be a non-empty string")
+    if not isinstance(server_host, str) or not server_host.strip():
+        raise ValueError("server_host must be a non-empty string")
+
+    server = {
+        "log": {"level": "info", "timestamp": True},
+        "dns": {"servers": [{"type": "local", "tag": "local-dns"}], "rules": []},
+        "inbounds": [
+            {
+                "type": "shadowsocks",
+                "tag": "ss-in",
+                "listen": "127.0.0.1",
+                "listen_port": server_port,
+                "method": method,
+                "password": password,
+            }
+        ],
+        "outbounds": [{"type": "direct", "tag": "direct"}],
+        "route": {"final": "direct", "rules": []},
+    }
+
+    client = {
+        "log": {"level": "info", "timestamp": True},
+        "dns": {
+            "servers": [{"type": "local", "tag": "local-dns", "detour": "direct"}],
+            "rules": [],
+            "final": "local-dns",
+        },
+        "inbounds": [
+            {
+                "type": "mixed",
+                "tag": "mixed-in",
+                "listen": "127.0.0.1",
+                "listen_port": client_port,
+            }
+        ],
+        "outbounds": [
+            {
+                "type": "shadowsocks",
+                "tag": "ss-out",
+                "server": server_host,
+                "server_port": server_port,
+                "method": method,
+                "password": password,
+            },
+            {"type": "direct", "tag": "direct"},
+            {"type": "block", "tag": "block"},
+        ],
+        "route": {
+            "rules": [{"ip_cidr": ["127.0.0.0/8"], "outbound": "ss-out"}],
+            "final": "ss-out",
+        },
+    }
+    return server, client

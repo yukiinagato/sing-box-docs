@@ -1,6 +1,6 @@
 import pytest
 
-from tools.config_generation import validate_config
+from tools.config_generation import generate_tunnel_pair, validate_config
 
 
 def base_config():
@@ -83,3 +83,16 @@ def test_missing_top_level_field_rejected():
     config.pop("route")
     with pytest.raises(ValueError, match="missing top-level field"):
         validate_config(config)
+
+
+def test_generate_tunnel_pair_produces_valid_shapes():
+    server, client = generate_tunnel_pair(server_port=18080, client_port=2080, password="test-password")
+    assert server["inbounds"][0]["type"] == "shadowsocks"
+    assert client["inbounds"][0]["type"] == "mixed"
+    assert client["route"]["final"] == "ss-out"
+    validate_config(client)
+
+
+def test_generate_tunnel_pair_rejects_invalid_port():
+    with pytest.raises(ValueError, match="server_port must be in range"):
+        generate_tunnel_pair(server_port=0, client_port=2080, password="x")

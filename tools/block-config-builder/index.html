@@ -480,10 +480,11 @@ function validateField(value, spec) {
 
 function buildMergedConfig() {
   const result = {
+    log: {},
+    dns: { servers: [], rules: [] },
     inbounds: [],
     outbounds: [],
-    route: [],
-    dns: [],
+    route: { rules: [] },
     endpoints: [],
     services: []
   };
@@ -504,11 +505,14 @@ function buildMergedConfig() {
       payload[name] = value;
     }
 
-    payload.__page_id = block.pageId;
-
     const bucket = ARRAY_BUCKETS[block.moduleName];
-    if (bucket) {
+    if (bucket === 'inbounds' || bucket === 'outbounds' || bucket === 'endpoints' || bucket === 'services') {
       result[bucket].push(payload);
+    } else if (bucket === 'dns' || bucket === 'route') {
+      Object.assign(result[bucket], payload);
+      if (!Array.isArray(result[bucket].rules)) result[bucket].rules = [];
+    } else if (block.moduleName === 'log') {
+      Object.assign(result.log, payload);
     } else {
       if (!result[block.moduleName]) result[block.moduleName] = [];
       result[block.moduleName].push(payload);
