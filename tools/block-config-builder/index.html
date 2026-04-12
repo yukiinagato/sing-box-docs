@@ -140,6 +140,24 @@
     .toggle { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); }
     .delete { border: 1px solid color-mix(in srgb, var(--danger) 70%, var(--border)); background: transparent; color: var(--danger); border-radius: 8px; padding: 4px 8px; cursor: pointer; }
     .grid { display: grid; grid-template-columns: repeat(auto-fill,minmax(190px,1fr)); gap: 10px; }
+    .schema-tree { display: flex; flex-direction: column; gap: 10px; }
+    .nested-panel {
+      --depth: 1;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px;
+      background: color-mix(in oklab, var(--panel-2) calc(90% - min(var(--depth), 6) * 6%), white);
+    }
+    .nested-panel > legend {
+      padding: 0 6px;
+      font-size: 12px;
+      color: #bdd5ff;
+    }
+    .path-chip {
+      font-size: 11px;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
     .field { display: flex; flex-direction: column; gap: 4px; }
     .field label { font-size: 12px; color: var(--muted); }
     .field input, .field select, .field textarea {
@@ -320,6 +338,7 @@ async function bootstrap() {
   renderWorkspace();
   rerenderOutput();
   bindGlobalActions();
+  bindWorkspaceDelegation();
 }
 
 function renderWizard() {
@@ -440,7 +459,9 @@ async function loadSchema(filename) {
 }
 
 function renderLibrary() {
-  const modules = [...state.schemas.values()].sort((a, b) => a.module.localeCompare(b.module));
+  const modules = [...state.schemas.values()]
+    .filter((schema) => ROOT_ALLOWED_KEYS.has(resolveRootKeyByModule(schema.module)))
+    .sort((a, b) => a.module.localeCompare(b.module));
   if (!modules.length) {
     els.library.innerHTML = '<div class="empty">找不到可用 Schema。</div>';
     return;
@@ -585,7 +606,7 @@ function pushBlockFromPayload(moduleName, payload, preferredPageId = '', titleFa
 
 function pushSharedBlocksFromParent(parentPayload, sharedTarget) {
   if (!parentPayload || typeof parentPayload !== 'object') return;
-  Object.entries(SHARED_NESTED_PAGE_TO_KEY).forEach(([pageId, nestedKey]) => {
+  Object.entries(SHARED_PAGE_TO_PROPERTY).forEach(([pageId, nestedKey]) => {
     const nested = parentPayload[nestedKey];
     if (!nested || typeof nested !== 'object') return;
     const page = findBestPage('shared', nested, pageId);
@@ -607,11 +628,9 @@ function syncUIFromCurrentConfig(config) {
   inbounds.forEach((inbound) => {
     const title = inbound?.type === 'tun' ? 'TUN Inbound' : '';
     pushBlockFromPayload('inbound', inbound, inbound?.type || '', title);
-    pushSharedBlocksFromParent(inbound, 'inbound');
   });
   outbounds.forEach((outbound) => {
     pushBlockFromPayload('outbound', outbound, outbound?.type || '');
-    pushSharedBlocksFromParent(outbound, 'outbound');
   });
   dnsServers.forEach((server) => {
     pushBlockFromPayload('dns', server, server?.type || 'server', 'DNS Server');
@@ -675,35 +694,53 @@ function renderWorkspace() {
           <button class="delete" data-role="delete">刪除</button>
         </div>
       </div>
-      <div class="grid"></div>
+      <div class="schema-tree"></div>
     `;
 
     bindDragHandlers(card);
-    card.querySelector('[data-role="toggle"]').onchange = (e) => {
-      block.active = e.target.checked;
-      rerenderOutput();
-    };
-    card.querySelector('[data-role="delete"]').onclick = () => {
-      state.blocksData.splice(index, 1);
-      renderWorkspace();
-      rerenderOutput();
-    };
-    if (block.moduleName === 'shared') {
-      const targetSel = card.querySelector('[data-role="shared-target"]');
-      targetSel.value = block.sharedTarget || 'outbound';
-      targetSel.onchange = (e) => {
-        block.sharedTarget = e.target.value;
-        rerenderOutput();
-      };
-    }
-
-    const grid = card.querySelector('.grid');
-    Object.entries(block.fields).forEach(([fieldName, spec]) => {
-      grid.appendChild(renderField(block, fieldName, spec));
-    });
+    const treeRoot = card.querySelector('.schema-tree');
+    generateUIFromSchema(treeRoot, block, block.fields, [resolveRootKeyByModule(block.moduleName), block.pageId], 0);
 
     els.blocks.appendChild(card);
   });
+}
+
+function generateUIFromSchema(container, block, fields, breadcrumb = [], depth = 0) {
+  const tree = buildFieldTree(fields);
+  tree.fields.forEach((leaf) => {
+    container.appendChild(renderField(block, leaf.path, leaf.spec, depth, breadcrumb));
+  });
+
+  tree.groups.forEach((group, segment) => {
+    const nestedPath = [...breadcrumb, segment];
+    const panel = document.createElement('fieldset');
+    panel.className = 'nested-panel';
+    panel.style.setProperty('--depth', String(depth + 1));
+    panel.innerHTML = `
+      <legend>${escapeHtml(segment)}</legend>
+      <div class="path-chip">${escapeHtml(nestedPath.join(' > '))}</div>
+      <div class="schema-tree"></div>
+    `;
+    generateUIFromSchema(panel.querySelector('.schema-tree'), block, group, nestedPath, depth + 1);
+    container.appendChild(panel);
+  });
+}
+
+function buildFieldTree(fields) {
+  const groups = new Map();
+  const plainFields = [];
+  Object.entries(fields || {}).forEach(([path, spec]) => {
+    const segments = String(path).split('.');
+    if (segments.length === 1) {
+      plainFields.push({ path, spec });
+      return;
+    }
+    const [head, ...rest] = segments;
+    const restPath = rest.join('.');
+    if (!groups.has(head)) groups.set(head, {});
+    groups.get(head)[restPath] = spec;
+  });
+  return { fields: plainFields, groups };
 }
 
 function bindDragHandlers(card) {
@@ -729,15 +766,90 @@ function bindDragHandlers(card) {
   });
 }
 
-function renderField(block, fieldName, spec) {
+function bindWorkspaceDelegation() {
+  const handleFieldMutation = (target) => {
+    const blockId = target.dataset.blockId;
+    const fieldPath = target.dataset.fieldPath;
+    if (!blockId || !fieldPath) return;
+    const block = state.blocksData.find((item) => item.id === blockId);
+    if (!block) return;
+    setNestedValue(block.values, fieldPath, readInputValue(target, target.dataset.fieldType));
+    rerenderOutput({ refreshWorkspace: false });
+    debouncedWorkspaceRefresh();
+  };
+
+  els.blocks.addEventListener('input', (event) => {
+    const field = event.target.closest('[data-block-id][data-field-path]');
+    if (!field) return;
+    if (field.dataset.role === 'object-toggle') return;
+    handleFieldMutation(field);
+  });
+
+  els.blocks.addEventListener('change', (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLInputElement || target instanceof HTMLSelectElement || target instanceof HTMLTextAreaElement)) return;
+    const card = target.closest('.block');
+    const index = Number(card?.dataset.index);
+    const block = state.blocksData[index];
+
+    if (target.dataset.role === 'object-toggle') {
+      if (!block) return;
+      if (!target.checked) {
+        deleteNestedValue(block.values, target.dataset.fieldPath);
+      } else if (getNestedValue(block.values, target.dataset.fieldPath) === undefined) {
+        setNestedValue(block.values, target.dataset.fieldPath, {});
+      }
+      rerenderOutput({ refreshWorkspace: true, preserveFocus: true });
+      return;
+    }
+
+    if (target.dataset.role === 'shared-target') {
+      block.sharedTarget = target.value;
+      rerenderOutput({ refreshWorkspace: false });
+      return;
+    }
+
+    if (target.dataset.role === 'toggle') {
+      if (!block) return;
+      block.active = target.checked;
+      rerenderOutput({ refreshWorkspace: false });
+      return;
+    }
+
+    const field = target.closest('[data-block-id][data-field-path]');
+    if (!field) return;
+    handleFieldMutation(field);
+  });
+
+  els.blocks.addEventListener('click', (event) => {
+    const target = event.target.closest('[data-role]');
+    if (!target) return;
+    const card = target.closest('.block');
+    if (!card) return;
+    const index = Number(card.dataset.index);
+    const block = state.blocksData[index];
+    if (!block) return;
+
+    if (target.dataset.role === 'delete') {
+      state.blocksData.splice(index, 1);
+      renderWorkspace();
+      rerenderOutput();
+      return;
+    }
+
+  });
+}
+
+function renderField(block, fieldName, spec, depth = 0, breadcrumb = []) {
   const wrap = document.createElement('div');
   wrap.className = 'field';
 
   const label = document.createElement('label');
-  label.textContent = fieldName + (spec.required ? ' *' : '');
+  const labelName = fieldName.includes('.') ? fieldName.split('.').at(-1) : fieldName;
+  label.textContent = labelName + (spec.required ? ' *' : '');
   wrap.appendChild(label);
 
-  const current = block.values[fieldName];
+  const current = getNestedValue(block.values, fieldName);
   const type = spec?.type;
   const allowed = Array.isArray(spec.allowedValues) ? spec.allowedValues : null;
 
@@ -760,21 +872,42 @@ function renderField(block, fieldName, spec) {
     input.placeholder = '每行一個值（Tag Input）';
     input.value = Array.isArray(current) ? current.join('\n') : '';
   } else if (type === 'object') {
-    input = document.createElement('textarea');
-    input.placeholder = '{"key":"value"}';
-    input.value = safeStringify(current);
+    const objectWrap = document.createElement('div');
+    const objectToggle = document.createElement('label');
+    objectToggle.className = 'toggle';
+    objectToggle.innerHTML = `<input type="checkbox" ${current !== undefined ? 'checked' : ''}> 啟用 ${escapeHtml(labelName)} 子配置`;
+    const objectPanel = document.createElement('fieldset');
+    objectPanel.className = 'nested-panel';
+    objectPanel.style.setProperty('--depth', String(depth + 1));
+    objectPanel.hidden = current === undefined;
+    const objectPath = [...breadcrumb, labelName].join(' > ');
+    objectPanel.innerHTML = `
+      <legend>${escapeHtml(labelName)}</legend>
+      <div class="path-chip">${escapeHtml(objectPath)}</div>
+    `;
+    const objectEditor = document.createElement('textarea');
+    objectEditor.placeholder = '{"key":"value"}';
+    objectEditor.value = current && typeof current === 'object' ? safeStringify(current, 2) : '{}';
+    bindFieldDataset(objectEditor, block.id, fieldName, type);
+    objectPanel.appendChild(objectEditor);
+    const objectToggleInput = objectToggle.querySelector('input');
+    objectToggleInput.dataset.role = 'object-toggle';
+    objectToggleInput.dataset.blockId = block.id;
+    objectToggleInput.dataset.fieldPath = fieldName;
+    objectWrap.appendChild(objectToggle);
+    objectWrap.appendChild(objectPanel);
+    wrap.appendChild(objectWrap);
+    input = null;
   } else {
     input = document.createElement('input');
     input.type = type === 'integer' ? 'number' : 'text';
     input.value = current ?? '';
   }
 
-  input.oninput = () => {
-    block.values[fieldName] = readInputValue(input, type);
-    rerenderOutput();
-  };
-
-  wrap.appendChild(input);
+  if (input) {
+    bindFieldDataset(input, block.id, fieldName, type);
+    wrap.appendChild(input);
+  }
 
   if (spec.description) {
     const hint = document.createElement('div');
@@ -783,7 +916,7 @@ function renderField(block, fieldName, spec) {
     wrap.appendChild(hint);
   }
 
-  const fieldErrors = validateField(block.values[fieldName], spec);
+  const fieldErrors = validateField(getNestedValue(block.values, fieldName), spec);
   if (fieldErrors.length) {
     const err = document.createElement('div');
     err.className = 'field-error';
@@ -792,6 +925,12 @@ function renderField(block, fieldName, spec) {
   }
 
   return wrap;
+}
+
+function bindFieldDataset(input, blockId, fieldPath, type) {
+  input.dataset.blockId = blockId;
+  input.dataset.fieldPath = fieldPath;
+  input.dataset.fieldType = type || 'string';
 }
 
 function readInputValue(input, type) {
@@ -1030,7 +1169,7 @@ function buildMergedConfig() {
     const payload = { ...(block.basePayload || {}) };
 
     for (const [name, spec] of Object.entries(block.fields)) {
-      const value = block.values[name];
+      const value = getNestedValue(block.values, name);
       const fieldErrors = validateField(value, spec);
       const keyErrors = validateShadowsocksKey(block, name, value);
       const allErrors = [...fieldErrors, ...keyErrors];
@@ -1039,7 +1178,7 @@ function buildMergedConfig() {
         continue;
       }
       if (value === '' || value === null || value === undefined) continue;
-      payload[name] = value;
+      setPayloadValue(payload, name, value);
     }
     payloadByBlockId.set(block.id, payload);
   }
@@ -1079,15 +1218,106 @@ function buildMergedConfig() {
   return { result, errors };
 }
 
-function rerenderOutput() {
+function setPayloadValue(payload, path, value) {
+  if (!String(path).includes('.')) {
+    payload[path] = value;
+    return;
+  }
+  setNestedValue(payload, path, value);
+}
+
+function getNestedValue(obj, path) {
+  return String(path).split('.').reduce((acc, segment) => (
+    acc && typeof acc === 'object' ? acc[segment] : undefined
+  ), obj);
+}
+
+function setNestedValue(obj, path, value) {
+  const segments = String(path).split('.');
+  let cursor = obj;
+  for (let i = 0; i < segments.length - 1; i += 1) {
+    const key = segments[i];
+    if (!cursor[key] || typeof cursor[key] !== 'object') cursor[key] = {};
+    cursor = cursor[key];
+  }
+  cursor[segments.at(-1)] = value;
+}
+
+function deleteNestedValue(obj, path) {
+  const segments = String(path).split('.');
+  let cursor = obj;
+  for (let i = 0; i < segments.length - 1; i += 1) {
+    cursor = cursor?.[segments[i]];
+    if (!cursor || typeof cursor !== 'object') return;
+  }
+  delete cursor?.[segments.at(-1)];
+}
+
+function resolveRootKeyByModule(moduleName) {
+  const map = {
+    endpoint: 'endpoints',
+    inbound: 'inbounds',
+    outbound: 'outbounds',
+    service: 'services',
+  };
+  return map[moduleName] || moduleName;
+}
+
+function rerenderOutput(options = {}) {
+  const { refreshWorkspace = true, preserveFocus = false } = options;
   const { result, errors } = buildMergedConfig();
   els.preview.innerHTML = highlightJson(safeStringify(result, 2));
   els.summary.textContent = summarizeRules(result);
   els.errors.hidden = errors.length === 0;
   els.errors.textContent = errors.length ? errors.join('\n') : '';
 
-  // Refresh field-level errors.
+  if (refreshWorkspace) {
+    renderWorkspacePreserveFocus(preserveFocus);
+  }
+}
+
+function captureFocusedField() {
+  const active = document.activeElement;
+  if (!(active instanceof HTMLInputElement || active instanceof HTMLTextAreaElement || active instanceof HTMLSelectElement)) return null;
+  if (!active.dataset.blockId || !active.dataset.fieldPath) return null;
+  return {
+    blockId: active.dataset.blockId,
+    fieldPath: active.dataset.fieldPath,
+    role: active.dataset.role || '',
+    selectionStart: 'selectionStart' in active ? active.selectionStart : null,
+    selectionEnd: 'selectionEnd' in active ? active.selectionEnd : null,
+  };
+}
+
+function restoreFocusedField(snapshot) {
+  if (!snapshot) return;
+  requestAnimationFrame(() => {
+    const selector = `[data-block-id="${CSS.escape(snapshot.blockId)}"][data-field-path="${CSS.escape(snapshot.fieldPath)}"]${snapshot.role ? `[data-role="${CSS.escape(snapshot.role)}"]` : ''}`;
+    const next = els.blocks.querySelector(selector);
+    if (!(next instanceof HTMLInputElement || next instanceof HTMLTextAreaElement || next instanceof HTMLSelectElement)) return;
+    next.focus();
+    if ('setSelectionRange' in next && snapshot.selectionStart !== null && snapshot.selectionEnd !== null) {
+      next.setSelectionRange(snapshot.selectionStart, snapshot.selectionEnd);
+    }
+  });
+}
+
+function renderWorkspacePreserveFocus(shouldRestore) {
+  const snapshot = shouldRestore ? captureFocusedField() : null;
   renderWorkspace();
+  if (shouldRestore) restoreFocusedField(snapshot);
+}
+
+const debouncedWorkspaceRefresh = debounce(() => {
+  rerenderOutput({ refreshWorkspace: true, preserveFocus: true });
+}, 300);
+
+function debounce(fn, wait = 300) {
+  let timer = null;
+  return (...args) => {
+    clearTimeout(timer);
+    timer = setTimeout(() => fn(...args), wait);
+  };
 }
 
 function bindGlobalActions() {
