@@ -11,6 +11,19 @@ from tools.core.linter import ProjectLinter
 
 SUPPORTED_INBOUND_TYPES = {"socks", "http", "mixed", "tun", "shadowsocks"}
 SUPPORTED_OUTBOUND_TYPES = {"direct", "block", "dns", "shadowsocks", "trojan"}
+ALLOWED_ROOT_KEYS = {
+    "log",
+    "dns",
+    "ntp",
+    "certificate",
+    "certificate_providers",
+    "endpoints",
+    "inbounds",
+    "outbounds",
+    "route",
+    "services",
+    "experimental",
+}
 
 
 def _ensure_dict(value: Any, name: str) -> dict[str, Any]:
@@ -107,6 +120,13 @@ def validate_route(route: Any, outbound_tags: set[str]) -> None:
 
 def validate_config(config: Any) -> None:
     cfg = _ensure_dict(config, "config")
+
+    unknown_roots = [key for key in cfg if key not in ALLOWED_ROOT_KEYS]
+    if unknown_roots:
+        raise ValueError(
+            f"illegal root field(s): {', '.join(sorted(unknown_roots))}; "
+            f"allowed: {', '.join(sorted(ALLOWED_ROOT_KEYS))}"
+        )
 
     for top in ("log", "dns", "inbounds", "outbounds", "route"):
         if top not in cfg:

@@ -354,10 +354,11 @@ const ROOT_ALLOWED_KEYS = new Set([
   'experimental',
 ]);
 
-const ROOT_SHARED_KEYS = ['tls', 'transport', 'multiplex', 'multipath'];
+const ROOT_SHARED_KEYS = ['tls', 'transport', 'v2ray_transport', 'multiplex', 'mux', 'multipath'];
 const SHARED_PAGE_TO_PROPERTY = {
   tls: 'tls',
   multiplex: 'multiplex',
+  mux: 'multiplex',
   multipath: 'multipath',
   'v2ray-transport': 'transport',
 };
@@ -1174,62 +1175,67 @@ function validateShadowsocksKey(block, fieldName, value) {
 }
 
 function migrateLegacy14(result, errors) {
-  if (Array.isArray(result.dns)) {
+  if (Object.hasOwn(result, 'dns') && Array.isArray(result.dns)) {
     result.dns = { servers: result.dns, rules: [] };
     errors.push('已自動將 dns 陣列遷移為 1.14 對象結構');
   }
-  if (!result.dns || typeof result.dns !== 'object') {
+  if (Object.hasOwn(result, 'dns') && (!result.dns || typeof result.dns !== 'object')) {
     result.dns = { servers: [], rules: [] };
   }
-  if (!Array.isArray(result.dns.servers)) result.dns.servers = [];
-  if (!Array.isArray(result.dns.rules)) result.dns.rules = [];
-  result.dns.servers = result.dns.servers.map((server) => {
-    if (!server || typeof server !== 'object') return server;
-    if (typeof server.address === 'string' && !server.type) {
-      const migrated = { ...server };
-      const address = migrated.address;
-      if (address.startsWith('https://')) {
-        const url = new URL(address);
-        migrated.type = 'https';
-        migrated.server = url.hostname;
-        migrated.server_port = Number(url.port || 443);
-        migrated.path = url.pathname || '/dns-query';
-      } else {
-        migrated.type = 'udp';
-        migrated.server = address;
-        migrated.server_port = 53;
+  if (Object.hasOwn(result, 'dns') && result.dns && typeof result.dns === 'object') {
+    if (!Array.isArray(result.dns.servers)) result.dns.servers = [];
+    if (!Array.isArray(result.dns.rules)) result.dns.rules = [];
+    result.dns.servers = result.dns.servers.map((server) => {
+      if (!server || typeof server !== 'object') return server;
+      if (typeof server.address === 'string' && !server.type) {
+        const migrated = { ...server };
+        const address = migrated.address;
+        if (address.startsWith('https://')) {
+          const url = new URL(address);
+          migrated.type = 'https';
+          migrated.server = url.hostname;
+          migrated.server_port = Number(url.port || 443);
+          migrated.path = url.pathname || '/dns-query';
+        } else {
+          migrated.type = 'udp';
+          migrated.server = address;
+          migrated.server_port = 53;
+        }
+        delete migrated.address;
+        errors.push('已自動將 legacy dns.address 遷移為 1.14 server/type 結構');
+        return migrated;
       }
-      delete migrated.address;
-      errors.push('已自動將 legacy dns.address 遷移為 1.14 server/type 結構');
-      return migrated;
-    }
-    return server;
-  });
+      return server;
+    });
+  }
 
-  if (Array.isArray(result.route)) {
+  if (Object.hasOwn(result, 'route') && Array.isArray(result.route)) {
     result.route = { rules: result.route };
     errors.push('已自動將 route 陣列遷移為 1.14 對象結構');
   }
-  if (!result.route || typeof result.route !== 'object') {
+  if (Object.hasOwn(result, 'route') && (!result.route || typeof result.route !== 'object')) {
     result.route = { rules: [] };
   }
-  if (!Array.isArray(result.route.rules)) result.route.rules = [];
+  if (Object.hasOwn(result, 'route') && result.route && typeof result.route === 'object') {
+    if (!Array.isArray(result.route.rules)) result.route.rules = [];
+  }
 
   for (const key of ROOT_SHARED_KEYS) {
     if (!Object.hasOwn(result, key)) continue;
     const value = result[key];
+    const normalizedKey = key === 'v2ray_transport' ? 'transport' : (key === 'mux' ? 'multiplex' : key);
     let migrated = 0;
     for (const section of ['inbounds', 'outbounds', 'endpoints']) {
       const nodes = Array.isArray(result[section]) ? result[section] : [];
       for (const node of nodes) {
-        if (!node || typeof node !== 'object' || Object.hasOwn(node, key)) continue;
-        node[key] = structuredClone(value);
+        if (!node || typeof node !== 'object' || Object.hasOwn(node, normalizedKey)) continue;
+        node[normalizedKey] = structuredClone(value);
         migrated += 1;
       }
     }
     delete result[key];
     if (migrated) {
-      errors.push(`已將根級 ${key} 遷移為 inbounds/outbounds/endpoints 子屬性`);
+      errors.push(`已將根級 ${key} 遷移為 inbounds/outbounds/endpoints 子屬性 (${normalizedKey})`);
     } else {
       errors.push(`檢測到非法根級字段 ${key}，但無可遷移主塊，已移除`);
     }
@@ -1340,15 +1346,7 @@ function summarizeRules(result) {
 }
 
 function buildMergedConfig() {
-  const result = {
-    log: {},
-    dns: { servers: [], rules: [] },
-    inbounds: [],
-    outbounds: [],
-    route: { rules: [] },
-    endpoints: [],
-    services: []
-  };
+  const result = {};
   const errors = [...state.errors];
   const payloadByBlockId = new Map();
 
@@ -1377,17 +1375,24 @@ function buildMergedConfig() {
 
     const bucket = ARRAY_BUCKETS[block.moduleName];
     if (bucket === 'inbounds' || bucket === 'outbounds' || bucket === 'endpoints' || bucket === 'services') {
+      if (!Array.isArray(result[bucket])) result[bucket] = [];
       result[bucket].push(payload);
     } else if (bucket === 'dns' || bucket === 'route') {
+      if (!result[bucket] || typeof result[bucket] !== 'object' || Array.isArray(result[bucket])) result[bucket] = {};
       Object.assign(result[bucket], payload);
       if (!Array.isArray(result[bucket].rules)) result[bucket].rules = [];
     } else if (block.moduleName === 'log') {
+      if (!result.log || typeof result.log !== 'object' || Array.isArray(result.log)) result.log = {};
       Object.assign(result.log, payload);
     } else if (block.moduleName === 'shared') {
       const target = payloadByBlockId.get(block.parentId);
       const nestedKey = SHARED_PAGE_TO_PROPERTY[block.pageId] || block.pageId;
       if (!target) {
         errors.push(`${block.title}: Shared 模塊未綁定 inbound/outbound/endpoint，已忽略`);
+        continue;
+      }
+      if (!['tls', 'transport', 'multiplex', 'multipath'].includes(nestedKey)) {
+        errors.push(`${block.title}: Shared 模塊字段 ${nestedKey} 不在允許清單中，已忽略`);
         continue;
       }
       target[nestedKey] = payload;
