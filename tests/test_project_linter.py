@@ -45,3 +45,31 @@ def test_linter_rejects_invalid_2022_key_length():
     }
     with pytest.raises(ValueError, match="base64"):
         ProjectLinter().lint(config)
+
+
+def test_linter_migrates_root_shared_fields_into_inbound_outbound():
+    config = {
+        "dns": {"servers": [], "rules": []},
+        "route": {"rules": []},
+        "inbounds": [{"type": "mixed", "tag": "mixed-in", "listen_port": 2080}],
+        "outbounds": [{"type": "direct", "tag": "direct"}],
+        "tls": {"enabled": True, "insecure": False},
+    }
+    result = ProjectLinter().lint(config)
+    assert "tls" not in result.config
+    assert result.config["inbounds"][0]["tls"]["enabled"] is True
+    assert result.config["outbounds"][0]["tls"]["enabled"] is True
+    assert any("migrated root tls" in w for w in result.warnings)
+
+
+def test_linter_enforces_root_whitelist():
+    config = {
+        "dns": {"servers": [], "rules": []},
+        "route": {"rules": []},
+        "inbounds": [],
+        "outbounds": [],
+        "foo": {"bar": 1},
+    }
+    result = ProjectLinter().lint(config)
+    assert "foo" not in result.config
+    assert any("illegal root field removed: foo" in w for w in result.warnings)

@@ -232,6 +232,28 @@ const ARRAY_BUCKETS = {
   service: 'services'
 };
 
+const ROOT_ALLOWED_KEYS = new Set([
+  'log',
+  'dns',
+  'ntp',
+  'certificate',
+  'certificate_providers',
+  'endpoints',
+  'inbounds',
+  'outbounds',
+  'route',
+  'services',
+  'experimental',
+]);
+
+const ROOT_SHARED_KEYS = ['tls', 'transport', 'multiplex', 'multipath'];
+const SHARED_PAGE_TO_PROPERTY = {
+  tls: 'tls',
+  multiplex: 'multiplex',
+  multipath: 'multipath',
+  'v2ray-transport': 'transport',
+};
+
 const KNOWN_SCHEMA_FILES = [
   'certificate.json','dns.json','endpoint.json','experimental.json','inbound.json','log.json','ntp.json','outbound.json','route.json','rule-set.json','service.json','shared.json'
 ];
@@ -463,7 +485,18 @@ function createBlock(moduleName, page, preset = {}) {
     fields: page.fields || {},
     values,
     basePayload,
+    parentId: moduleName === 'shared' ? findPreferredSharedParentId() : null,
   };
+}
+
+function findPreferredSharedParentId() {
+  for (let i = state.blocksData.length - 1; i >= 0; i -= 1) {
+    const block = state.blocksData[i];
+    if (block.moduleName === 'inbound' || block.moduleName === 'outbound' || block.moduleName === 'endpoint') {
+      return block.id;
+    }
+  }
+  return null;
 }
 
 function addBlockByPage(moduleName, page, preset = {}) {
@@ -610,11 +643,15 @@ function renderWorkspace() {
     card.draggable = true;
     card.dataset.index = String(index);
 
+    const parentBlock = block.parentId ? state.blocksData.find((b) => b.id === block.parentId) : null;
+    const scopeMeta = block.moduleName === 'shared'
+      ? ` ↳ nested in ${parentBlock?.title || '未綁定主塊'}`
+      : '';
     card.innerHTML = `
       <div class="block-header">
         <div>
           <div class="title">${escapeHtml(block.title)}</div>
-          <div class="meta">${escapeHtml(block.moduleName)} · ${escapeHtml(block.sourcePath || block.pageId)}</div>
+          <div class="meta">${escapeHtml(block.moduleName)} · ${escapeHtml(block.sourcePath || block.pageId)}${escapeHtml(scopeMeta)}</div>
         </div>
         <div class="controls">
           <label class="toggle"><input type="checkbox" ${block.active ? 'checked' : ''} data-role="toggle">啟用</label>
@@ -825,6 +862,34 @@ function migrateLegacy14(result, errors) {
     result.route = { rules: [] };
   }
   if (!Array.isArray(result.route.rules)) result.route.rules = [];
+
+  for (const key of ROOT_SHARED_KEYS) {
+    if (!Object.hasOwn(result, key)) continue;
+    const value = result[key];
+    let migrated = 0;
+    for (const section of ['inbounds', 'outbounds', 'endpoints']) {
+      const nodes = Array.isArray(result[section]) ? result[section] : [];
+      for (const node of nodes) {
+        if (!node || typeof node !== 'object' || Object.hasOwn(node, key)) continue;
+        node[key] = structuredClone(value);
+        migrated += 1;
+      }
+    }
+    delete result[key];
+    if (migrated) {
+      errors.push(`已將根級 ${key} 遷移為 inbounds/outbounds/endpoints 子屬性`);
+    } else {
+      errors.push(`檢測到非法根級字段 ${key}，但無可遷移主塊，已移除`);
+    }
+  }
+}
+
+function enforceRootWhitelist(result, errors) {
+  for (const key of Object.keys(result)) {
+    if (ROOT_ALLOWED_KEYS.has(key)) continue;
+    delete result[key];
+    errors.push(`非法根級字段已移除: ${key}`);
+  }
 }
 
 function buildWizardConfig() {
@@ -933,6 +998,7 @@ function buildMergedConfig() {
     services: []
   };
   const errors = [...state.errors];
+  const payloadByBlockId = new Map();
 
   for (const block of state.blocksData) {
     if (!block.active) continue;
@@ -950,6 +1016,12 @@ function buildMergedConfig() {
       if (value === '' || value === null || value === undefined) continue;
       payload[name] = value;
     }
+    payloadByBlockId.set(block.id, payload);
+  }
+
+  for (const block of state.blocksData) {
+    if (!block.active) continue;
+    const payload = payloadByBlockId.get(block.id) || {};
 
     const bucket = ARRAY_BUCKETS[block.moduleName];
     if (bucket === 'inbounds' || bucket === 'outbounds' || bucket === 'endpoints' || bucket === 'services') {
@@ -959,6 +1031,14 @@ function buildMergedConfig() {
       if (!Array.isArray(result[bucket].rules)) result[bucket].rules = [];
     } else if (block.moduleName === 'log') {
       Object.assign(result.log, payload);
+    } else if (block.moduleName === 'shared') {
+      const target = payloadByBlockId.get(block.parentId);
+      const nestedKey = SHARED_PAGE_TO_PROPERTY[block.pageId] || block.pageId;
+      if (!target) {
+        errors.push(`${block.title}: Shared 模塊未綁定 inbound/outbound/endpoint，已忽略`);
+        continue;
+      }
+      target[nestedKey] = payload;
     } else {
       if (!result[block.moduleName]) result[block.moduleName] = [];
       result[block.moduleName].push(payload);
@@ -969,6 +1049,7 @@ function buildMergedConfig() {
     if (Array.isArray(result[key]) && result[key].length === 0) delete result[key];
   }
   migrateLegacy14(result, errors);
+  enforceRootWhitelist(result, errors);
 
   return { result, errors };
 }
