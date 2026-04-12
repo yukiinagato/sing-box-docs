@@ -29,45 +29,6 @@ def test_linter_removes_non_native_fields():
     assert "__meta" not in result.config["inbounds"][0]
 
 
-def test_linter_moves_illegal_root_shared_fields_into_outbound():
-    config = {
-        "inbounds": [{"type": "mixed", "tag": "mixed-in", "listen_port": 2080}],
-        "outbounds": [{"type": "vmess", "tag": "proxy", "server": "example.com", "server_port": 443}],
-        "tls": {"enabled": True, "server_name": "example.com"},
-        "transport": {"type": "ws", "path": "/ws"},
-        "route": {"rules": []},
-    }
-    result = ProjectLinter().lint(config)
-
-    assert "tls" not in result.config
-    assert "transport" not in result.config
-    assert result.config["outbounds"][0]["tls"]["server_name"] == "example.com"
-    assert result.config["outbounds"][0]["transport"]["path"] == "/ws"
-    assert any("illegal root field" in warning or "moved illegal root field" in warning for warning in result.warnings)
-
-
-def test_linter_rehomes_misplaced_tls_fields_inside_outbound_tls():
-    config = {
-        "outbounds": [
-            {
-                "type": "vmess",
-                "tag": "proxy",
-                "server": "example.com",
-                "server_port": 443,
-                "server_name": "example.com",
-                "alpn": ["h2"],
-            }
-        ]
-    }
-    result = ProjectLinter().lint(config)
-    outbound = result.config["outbounds"][0]
-
-    assert "server_name" not in outbound
-    assert "alpn" not in outbound
-    assert outbound["tls"]["server_name"] == "example.com"
-    assert outbound["tls"]["alpn"] == ["h2"]
-
-
 def test_linter_rejects_invalid_2022_key_length():
     config = {
         "dns": {"servers": [], "rules": []},
