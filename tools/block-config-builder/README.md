@@ -37,6 +37,8 @@
 - **導出操作**
   - 一鍵複製 JSON。
   - 下載 `config.json`。
+  - 支持「僅差異導出」模式（移除與推薦默認相同的字段）。
+  - 支持「導入現有 JSON」並自動反向解構為 Block。
   - 重置全部塊。
 - **JSON 即時預覽**
   - 右欄同步渲染語法高亮 JSON。
@@ -81,3 +83,4 @@ npx serve .
 
 - 若某些 schema JSON 格式有誤（例如無法被 `JSON.parse`），工具會在錯誤面板顯示載入失敗資訊，但不影響其他 schema 的使用。
 - 後端與測試共用 `tools/core/linter.py::ProjectLinter`，用於保存前最後一層邏輯審查（去除 `__page_id` 等污染欄位、修復 DNS/Route 結構、校驗 2022 密鑰）。
+- UI 與 Python linter 共享 `tools/core/schema_shared.json` 內的根級白名單與枚舉選項，避免雙端定義漂移。

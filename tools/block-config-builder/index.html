@@ -297,6 +297,7 @@
           <div class="meta">新增、拖拽排序、啟用 / 停用模塊</div>
         </div>
         <div class="actions">
+          <button class="btn" id="import-btn">導入 JSON</button>
           <button class="btn danger" id="reset-btn">重置全部塊</button>
         </div>
       </div>
@@ -311,6 +312,7 @@
           <div class="meta">即時合併結果</div>
         </div>
         <div class="actions">
+          <label class="toggle"><input type="checkbox" id="diff-only-toggle">僅差異導出</label>
           <button class="btn" id="copy-btn">複製 JSON</button>
           <button class="btn primary" id="download-btn">下載 config.json</button>
         </div>
@@ -319,12 +321,24 @@
       <pre class="preview" id="preview"></pre>
     </aside>
   </div>
+  <dialog id="import-dialog">
+    <form method="dialog" style="display:flex;flex-direction:column;gap:10px;min-width:560px;max-width:70vw;">
+      <strong>導入現有 JSON</strong>
+      <textarea id="import-json-input" style="min-height:220px;background:#0e1529;color:#e9edf8;border:1px solid #2b3557;border-radius:8px;padding:8px;" placeholder='{"log":{"level":"info"}}'></textarea>
+      <div style="display:flex;justify-content:flex-end;gap:8px;">
+        <button class="btn" value="cancel">取消</button>
+        <button class="btn primary" id="import-apply-btn" value="default">導入並解構</button>
+      </div>
+    </form>
+  </dialog>
 
 <script type="module">
 const state = {
   schemas: new Map(),
   blocksData: [],
   errors: [],
+  sharedDefs: {},
+  exportDiffOnly: false,
   wizard: {
     scenario: 'none',
     data: {},
@@ -340,21 +354,9 @@ const ARRAY_BUCKETS = {
   service: 'services'
 };
 
-const ROOT_ALLOWED_KEYS = new Set([
-  'log',
-  'dns',
-  'ntp',
-  'certificate',
-  'certificate_providers',
-  'endpoints',
-  'inbounds',
-  'outbounds',
-  'route',
-  'services',
-  'experimental',
-]);
+const ROOT_ALLOWED_KEYS = new Set();
 
-const ROOT_SHARED_KEYS = ['tls', 'transport', 'v2ray_transport', 'multiplex', 'mux', 'multipath'];
+const ROOT_SHARED_KEYS = [];
 const SHARED_PAGE_TO_PROPERTY = {
   tls: 'tls',
   multiplex: 'multiplex',
@@ -367,12 +369,7 @@ const KNOWN_SCHEMA_FILES = [
   'certificate.json','dns.json','endpoint.json','experimental.json','inbound.json','log.json','ntp.json','outbound.json','route.json','rule-set.json','service.json','shared.json'
 ];
 
-// Synced from tools/core/constants.py ENUM_FIELD_OPTIONS.
-const ENUM_FIELD_OPTIONS = {
-  method: ['none', 'aes-128-gcm', 'aes-256-gcm', 'chacha20-ietf-poly1305', '2022-blake3-aes-128-gcm', '2022-blake3-aes-256-gcm'],
-  protocol: ['dns', 'http', 'tls', 'quic', 'stun', 'bittorrent'],
-  level: ['trace', 'debug', 'info', 'warn', 'error', 'fatal', 'panic'],
-};
+const ENUM_FIELD_OPTIONS = {};
 
 const BLOCK_TYPE_REGISTRY = {
   'socks-in': { moduleName: 'inbound', pageId: 'socks', title: 'SOCKS Inbound', preset: { type: 'socks', tag: 'socks-in', listen: '127.0.0.1', listen_port: 1080 } },
@@ -422,13 +419,19 @@ const els = {
   errors: document.getElementById('errors'),
   summary: document.getElementById('rule-summary'),
   reset: document.getElementById('reset-btn'),
+  importBtn: document.getElementById('import-btn'),
   copy: document.getElementById('copy-btn'),
   download: document.getElementById('download-btn'),
+  diffOnlyToggle: document.getElementById('diff-only-toggle'),
+  importDialog: document.getElementById('import-dialog'),
+  importApply: document.getElementById('import-apply-btn'),
+  importJsonInput: document.getElementById('import-json-input'),
 };
 
 await bootstrap();
 
 async function bootstrap() {
+  await loadSharedDefinitions();
   const schemaFiles = await discoverSchemaFiles();
   await Promise.all(schemaFiles.map(loadSchema));
   renderWizard();
@@ -437,6 +440,31 @@ async function bootstrap() {
   rerenderOutput();
   bindGlobalActions();
   bindWorkspaceDelegation();
+}
+
+async function loadSharedDefinitions() {
+  try {
+    const resp = await fetch('../core/schema_shared.json');
+    const defs = await resp.json();
+    state.sharedDefs = defs || {};
+    for (const key of defs.root_allowed_keys || []) ROOT_ALLOWED_KEYS.add(key);
+    ROOT_SHARED_KEYS.push(...(defs.root_shared_keys || []));
+    Object.assign(ENUM_FIELD_OPTIONS, defs.enum_field_options || {});
+    return;
+  } catch {
+    state.sharedDefs = {
+      recommended_base_config: { log: { level: 'info', timestamp: true }, dns: { servers: [{ type: 'local', tag: 'local-dns' }], rules: [] }, route: { rules: [] } },
+      ui_secure_defaults: { udp_over_tcp: true },
+    };
+    ['log', 'dns', 'ntp', 'certificate', 'certificate_providers', 'endpoints', 'inbounds', 'outbounds', 'route', 'services', 'experimental']
+      .forEach((key) => ROOT_ALLOWED_KEYS.add(key));
+    ROOT_SHARED_KEYS.push('tls', 'transport', 'v2ray_transport', 'multiplex', 'mux', 'multipath');
+    Object.assign(ENUM_FIELD_OPTIONS, {
+      method: ['none', 'aes-128-gcm', 'aes-256-gcm', 'chacha20-ietf-poly1305', '2022-blake3-aes-128-gcm', '2022-blake3-aes-256-gcm'],
+      protocol: ['dns', 'http', 'tls', 'quic', 'stun', 'bittorrent'],
+      level: ['trace', 'debug', 'info', 'warn', 'error', 'fatal', 'panic'],
+    });
+  }
 }
 
 function renderWizard() {
@@ -589,8 +617,13 @@ function renderLibrary() {
 function createBlock(moduleName, page, preset = {}) {
   const values = {};
   const basePayload = {};
+  const secureDefaults = state.sharedDefs?.ui_secure_defaults || {};
   for (const [field, spec] of Object.entries(page.fields || {})) {
     values[field] = inferDefault(spec);
+    if (Object.hasOwn(secureDefaults, field) && (values[field] === null || values[field] === '' || values[field] === false)) {
+      values[field] = secureDefaults[field];
+      basePayload[field] = secureDefaults[field];
+    }
   }
   Object.entries(preset).forEach(([key, val]) => {
     if (key === '__title') return;
@@ -969,6 +1002,12 @@ function bindWorkspaceDelegation() {
     const raw = target.value.trim().replace(/,$/, '');
     if (!raw) return;
     const type = target.dataset.fieldType;
+    const validationError = validateTagChipInput(fieldPath, raw);
+    if (validationError) {
+      els.errors.hidden = false;
+      els.errors.textContent = validationError;
+      return;
+    }
     const nextValue = type === 'array_integer' ? Number(raw) : raw;
     if (type === 'array_integer' && !Number.isFinite(nextValue)) return;
     const list = getNestedValue(block.values, fieldPath);
@@ -980,7 +1019,24 @@ function bindWorkspaceDelegation() {
   });
 }
 
+function validateTagChipInput(fieldPath, raw) {
+  const leaf = String(fieldPath).split('.').at(-1) || '';
+  if (leaf.includes('ip') || leaf.includes('cidr')) {
+    const cidrOk = /^(?:\d{1,3}\.){3}\d{1,3}\/\d{1,2}$/.test(raw);
+    const ipOk = /^(?:\d{1,3}\.){3}\d{1,3}$/.test(raw);
+    if (!(cidrOk || ipOk)) return `${fieldPath}: 僅允許 IP 或 CIDR 格式`;
+  }
+  if (leaf.includes('domain') || leaf.includes('suffix')) {
+    const domainOk = /^(?=.{1,253}$)(?:[a-zA-Z0-9](?:[-a-zA-Z0-9]{0,61}[a-zA-Z0-9])?\.)+[A-Za-z]{2,}$/.test(raw);
+    if (!domainOk) return `${fieldPath}: 域名格式不合法`;
+  }
+  return '';
+}
+
 function renderField(block, fieldName, spec, depth = 0, breadcrumb = []) {
+  if (!shouldRenderField(block, fieldName)) {
+    return document.createElement('div');
+  }
   const wrap = document.createElement('div');
   wrap.className = 'field';
 
@@ -1102,6 +1158,18 @@ function renderField(block, fieldName, spec, depth = 0, breadcrumb = []) {
   }
 
   return wrap;
+}
+
+function shouldRenderField(block, fieldName) {
+  if (block.pageId === 'tls') {
+    if (fieldName === 'enabled') return true;
+    const enabled = getNestedValue(block.values, 'enabled');
+    return enabled === true;
+  }
+  if (String(fieldName).startsWith('tls.') && fieldName !== 'tls.enabled') {
+    return getNestedValue(block.values, 'tls.enabled') === true;
+  }
+  return true;
 }
 
 function bindFieldDataset(input, blockId, fieldPath, type) {
@@ -1470,8 +1538,9 @@ function resolveRootKeyByModule(moduleName) {
 function rerenderOutput(options = {}) {
   const { refreshWorkspace = true, preserveFocus = false } = options;
   const { result, errors } = buildMergedConfig();
-  els.preview.innerHTML = highlightJson(safeStringify(result, 2));
-  els.summary.textContent = summarizeRules(result);
+  const exportResult = applyExportMode(result);
+  els.preview.innerHTML = highlightJson(safeStringify(exportResult, 2));
+  els.summary.textContent = summarizeRules(exportResult);
   els.errors.hidden = errors.length === 0;
   els.errors.textContent = errors.length ? errors.join('\n') : '';
 
@@ -1513,6 +1582,33 @@ function renderWorkspacePreserveFocus(shouldRestore) {
 }
 
 function bindGlobalActions() {
+  els.diffOnlyToggle.onchange = () => {
+    state.exportDiffOnly = els.diffOnlyToggle.checked;
+    rerenderOutput({ refreshWorkspace: false });
+  };
+
+  els.importBtn.onclick = () => {
+    els.importJsonInput.value = '';
+    els.importDialog.showModal();
+  };
+  els.importApply.onclick = async (event) => {
+    event.preventDefault();
+    const raw = els.importJsonInput.value.trim();
+    if (!raw) return;
+    try {
+      const parsed = JSON.parse(raw);
+      const normalized = await normalizeImportedConfig(parsed);
+      state.blocksData = [];
+      syncUIFromCurrentConfig(normalized);
+      renderWorkspace();
+      rerenderOutput({ refreshWorkspace: false });
+      els.importDialog.close();
+    } catch (error) {
+      els.errors.hidden = false;
+      els.errors.textContent = `導入失敗: ${error.message}`;
+    }
+  };
+
   els.reset.onclick = () => {
     state.blocksData = [];
     state.errors = [];
@@ -1522,14 +1618,14 @@ function bindGlobalActions() {
 
   els.copy.onclick = async () => {
     const { result } = buildMergedConfig();
-    await navigator.clipboard.writeText(safeStringify(result, 2));
+    await navigator.clipboard.writeText(safeStringify(applyExportMode(result), 2));
     els.copy.textContent = '已複製';
     setTimeout(() => (els.copy.textContent = '複製 JSON'), 1200);
   };
 
   els.download.onclick = () => {
     const { result } = buildMergedConfig();
-    const blob = new Blob([safeStringify(result, 2)], { type: 'application/json' });
+    const blob = new Blob([safeStringify(applyExportMode(result), 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -1537,6 +1633,45 @@ function bindGlobalActions() {
     a.click();
     URL.revokeObjectURL(url);
   };
+}
+
+async function normalizeImportedConfig(config) {
+  try {
+    const resp = await fetch('/tools/lint-config', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(config),
+    });
+    if (resp.ok) {
+      const payload = await resp.json();
+      if (payload?.config && typeof payload.config === 'object') return payload.config;
+    }
+  } catch {
+    // Ignore backend transport errors and fallback to local normalization.
+  }
+  const draft = structuredClone(config);
+  const lintErrors = [];
+  migrateLegacy14(draft, lintErrors);
+  enforceRootWhitelist(draft, lintErrors);
+  return draft;
+}
+
+function applyExportMode(config) {
+  if (!state.exportDiffOnly) return config;
+  const defaults = state.sharedDefs?.recommended_base_config || {};
+  return diffAgainstDefaults(config, defaults);
+}
+
+function diffAgainstDefaults(current, defaults) {
+  if (Array.isArray(current)) return current.map((item) => diffAgainstDefaults(item, null));
+  if (!current || typeof current !== 'object') return current;
+  const out = {};
+  for (const [key, value] of Object.entries(current)) {
+    const base = defaults && typeof defaults === 'object' ? defaults[key] : undefined;
+    const next = diffAgainstDefaults(value, base);
+    if (JSON.stringify(next) !== JSON.stringify(base)) out[key] = next;
+  }
+  return out;
 }
 
 function safeStringify(value, spaces = 0) {

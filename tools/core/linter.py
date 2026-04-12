@@ -4,35 +4,14 @@ from __future__ import annotations
 
 import base64
 import copy
+import ipaddress
 from dataclasses import dataclass
 from typing import Any
 
-from tools.core.constants import NON_NATIVE_FIELD_PREFIXES, SHADOWSOCKS_2022_KEY_BYTES
+from tools.core.constants import NON_NATIVE_FIELD_PREFIXES, ROOT_ALLOWED_KEYS, ROOT_SHARED_KEYS, SHADOWSOCKS_2022_KEY_BYTES
 
-ALLOWED_ROOT_KEYS = {
-    "log",
-    "dns",
-    "ntp",
-    "certificate",
-    "certificate_providers",
-    "endpoints",
-    "inbounds",
-    "outbounds",
-    "route",
-    "services",
-    "experimental",
-}
-
-SHARED_OBJECT_ROOT_KEYS = {
-    "tls",
-    "transport",
-    "v2ray_transport",
-    "mux",
-    "multiplex",
-    "tcp_brutal",
-    "udp_over_tcp",
-    "multipath",
-}
+ALLOWED_ROOT_KEYS = ROOT_ALLOWED_KEYS
+SHARED_OBJECT_ROOT_KEYS = set(ROOT_SHARED_KEYS) | {"tcp_brutal", "udp_over_tcp"}
 
 TLS_SUB_FIELDS = {
     "disable_sni",
@@ -61,20 +40,8 @@ class LintResult:
 class ProjectLinter:
     """Normalize and validate runtime config before persisting or testing."""
 
-    ROOT_ALLOWED_KEYS = {
-        "log",
-        "dns",
-        "ntp",
-        "certificate",
-        "certificate_providers",
-        "endpoints",
-        "inbounds",
-        "outbounds",
-        "route",
-        "services",
-        "experimental",
-    }
-    ROOT_SHARED_KEYS = ("tls", "transport", "v2ray_transport", "multiplex", "multipath", "mux")
+    ROOT_ALLOWED_KEYS = ROOT_ALLOWED_KEYS
+    ROOT_SHARED_KEYS = ROOT_SHARED_KEYS
     ROOT_REHOME_GUIDE = {
         "tls": "$.inbounds[i].tls / $.outbounds[i].tls / $.endpoints[i].tls",
         "transport": "$.inbounds[i].transport / $.outbounds[i].transport / $.endpoints[i].transport",
@@ -93,7 +60,12 @@ class ProjectLinter:
         self._repair_shared_child_scopes(normalized, warnings)
         self._normalize_dns_route_shapes(normalized, warnings)
         self._migrate_root_shared_fields(normalized, warnings)
+        self._migrate_dns_server_legacy_address(normalized, warnings)
+        self._normalize_route_rule_actions(normalized, warnings)
         self._enforce_root_whitelist(normalized, warnings, strict_root=strict_root)
+        self._validate_tag_references(normalized)
+        self._validate_endpoint_integrity(normalized)
+        self._detect_detour_cycles(normalized)
         self._validate_shared_field_scopes(normalized, warnings)
         self._validate_shadowsocks_keys(normalized)
 
@@ -165,6 +137,46 @@ class ProjectLinter:
                 route["rules"] = [route["rules"]]
                 warnings.append("route.rules was object; normalized to array")
             route.setdefault("rules", [])
+
+    def _migrate_dns_server_legacy_address(self, config: dict[str, Any], warnings: list[str]) -> None:
+        dns = config.get("dns")
+        if not isinstance(dns, dict):
+            return
+        servers = dns.get("servers")
+        if not isinstance(servers, list):
+            return
+        for idx, server in enumerate(servers):
+            if not isinstance(server, dict):
+                continue
+            address = server.get("address")
+            if not isinstance(address, str) or server.get("type"):
+                continue
+            migrated = dict(server)
+            host = address
+            port = 53
+            if ":" in address and not address.startswith("["):
+                maybe_host, maybe_port = address.rsplit(":", 1)
+                if maybe_port.isdigit():
+                    host = maybe_host
+                    port = int(maybe_port)
+            migrated["type"] = "udp"
+            migrated["server"] = host
+            migrated["server_port"] = port
+            migrated.pop("address", None)
+            servers[idx] = migrated
+            warnings.append(f"migrated dns.servers[{idx}].address to 1.14 structured server/server_port fields")
+
+    def _normalize_route_rule_actions(self, config: dict[str, Any], warnings: list[str]) -> None:
+        route = config.get("route")
+        rules = route.get("rules") if isinstance(route, dict) else None
+        if not isinstance(rules, list):
+            return
+        for idx, rule in enumerate(rules):
+            if not isinstance(rule, dict):
+                continue
+            if "outbound" in rule and "action" not in rule:
+                rule["action"] = "route"
+                warnings.append(f"route.rules[{idx}] missing action; normalized to action=route for outbound dispatch")
 
     def _validate_shadowsocks_keys(self, config: dict[str, Any]) -> None:
         for node in config.get("inbounds", []):
@@ -283,3 +295,206 @@ class ProjectLinter:
             raise ValueError(
                 f"{node_type} shadowsocks password for {method} decoded length must be {expected}, got {len(decoded)}"
             )
+
+    def _validate_tag_references(self, config: dict[str, Any]) -> None:
+        inbound_tags = {
+            node.get("tag")
+            for node in config.get("inbounds", [])
+            if isinstance(node, dict) and isinstance(node.get("tag"), str)
+        }
+        outbound_tags = {
+            node.get("tag")
+            for node in config.get("outbounds", [])
+            if isinstance(node, dict) and isinstance(node.get("tag"), str)
+        }
+        dns_tags = {
+            node.get("tag")
+            for node in config.get("dns", {}).get("servers", [])
+            if isinstance(node, dict) and isinstance(node.get("tag"), str)
+        }
+
+        def _iter_detours(node: Any) -> list[str]:
+            refs: list[str] = []
+            if isinstance(node, dict):
+                for key, value in node.items():
+                    if key == "detour" and isinstance(value, str):
+                        refs.append(value)
+                    refs.extend(_iter_detours(value))
+            elif isinstance(node, list):
+                for item in node:
+                    refs.extend(_iter_detours(item))
+            return refs
+
+        for ref in _iter_detours(config):
+            if ref not in outbound_tags:
+                raise ValueError(f"detour references unknown tag: {ref}")
+
+        dns_rules = config.get("dns", {}).get("rules", [])
+        if isinstance(dns_rules, list):
+            for idx, rule in enumerate(dns_rules):
+                if not isinstance(rule, dict):
+                    continue
+                server_tag = rule.get("server")
+                if isinstance(server_tag, str) and server_tag not in dns_tags:
+                    raise ValueError(f"dns.rules[{idx}].server references unknown tag: {server_tag}")
+
+        route_rules = config.get("route", {}).get("rules", [])
+        builtin_outbounds = {"direct", "block", "dns"}
+        if isinstance(route_rules, list):
+            for idx, rule in enumerate(route_rules):
+                if not isinstance(rule, dict):
+                    continue
+                outbound = rule.get("outbound")
+                if (
+                    isinstance(outbound, str)
+                    and outbound not in outbound_tags
+                    and outbound not in builtin_outbounds
+                    and outbound_tags
+                ):
+                    raise ValueError(f"route.rules[{idx}].outbound references unknown tag: {outbound}")
+
+        for idx, endpoint in enumerate(config.get("endpoints", [])):
+            if not isinstance(endpoint, dict):
+                continue
+            ep_detour = endpoint.get("detour")
+            if isinstance(ep_detour, str) and ep_detour not in outbound_tags:
+                raise ValueError(f"endpoints[{idx}].detour references unknown tag: {ep_detour}")
+
+        for idx, inbound in enumerate(config.get("inbounds", [])):
+            if not isinstance(inbound, dict):
+                continue
+            if inbound.get("type") == "tun":
+                for include_key in ("include_interface", "exclude_interface"):
+                    interfaces = inbound.get(include_key)
+                    if not isinstance(interfaces, list):
+                        continue
+                    for ip_idx, raw in enumerate(interfaces):
+                        if not isinstance(raw, str):
+                            continue
+                        try:
+                            ipaddress.ip_address(raw)
+                        except ValueError:
+                            # These fields can also contain interface names.
+                            continue
+
+    def _validate_endpoint_integrity(self, config: dict[str, Any]) -> None:
+        endpoints = config.get("endpoints", [])
+        if not isinstance(endpoints, list) or not endpoints:
+            return
+
+        endpoint_tags = {
+            endpoint.get("tag")
+            for endpoint in endpoints
+            if isinstance(endpoint, dict) and isinstance(endpoint.get("tag"), str)
+        }
+        if not endpoint_tags:
+            raise ValueError("endpoints defined but no endpoint.tag found")
+
+        referenced_tags: set[str] = set()
+        for outbound in config.get("outbounds", []):
+            if not isinstance(outbound, dict):
+                continue
+            self._collect_named_refs(outbound, {"endpoint", "endpoint_tag"}, referenced_tags)
+
+        dangling = sorted(endpoint_tags - referenced_tags)
+        if dangling:
+            raise ValueError(f"endpoint tags are not referenced by any outbound: {', '.join(dangling)}")
+
+        for idx, endpoint in enumerate(endpoints):
+            if not isinstance(endpoint, dict):
+                continue
+            ep_type = endpoint.get("type")
+            if ep_type == "wireguard":
+                if not isinstance(endpoint.get("private_key"), str) or not endpoint["private_key"].strip():
+                    raise ValueError(f"endpoints[{idx}].private_key is required for wireguard endpoint")
+                address = endpoint.get("address")
+                if not isinstance(address, list) or not address:
+                    raise ValueError(f"endpoints[{idx}].address is required for wireguard endpoint")
+                peers = endpoint.get("peers")
+                if not isinstance(peers, list) or not peers:
+                    raise ValueError(f"endpoints[{idx}].peers is required for wireguard endpoint")
+                for peer_idx, peer in enumerate(peers):
+                    if not isinstance(peer, dict):
+                        raise ValueError(f"endpoints[{idx}].peers[{peer_idx}] must be object")
+                    if not isinstance(peer.get("address"), str):
+                        raise ValueError(f"endpoints[{idx}].peers[{peer_idx}].address is required")
+                    if not isinstance(peer.get("public_key"), str):
+                        raise ValueError(f"endpoints[{idx}].peers[{peer_idx}].public_key is required")
+
+            if ep_type == "shadowsocks":
+                required = ("server", "server_port", "method", "password")
+                for field in required:
+                    if field not in endpoint:
+                        raise ValueError(f"endpoints[{idx}].{field} is required for shadowsocks endpoint")
+
+    def _detect_detour_cycles(self, config: dict[str, Any]) -> None:
+        nodes: set[str] = set()
+        edges: dict[str, set[str]] = {}
+
+        def add_node(name: str) -> None:
+            nodes.add(name)
+            edges.setdefault(name, set())
+
+        for outbound in config.get("outbounds", []):
+            if isinstance(outbound, dict) and isinstance(outbound.get("tag"), str):
+                add_node(f"outbound:{outbound['tag']}")
+
+        dns_servers = config.get("dns", {}).get("servers", [])
+        if isinstance(dns_servers, list):
+            for idx, server in enumerate(dns_servers):
+                if not isinstance(server, dict):
+                    continue
+                tag = server.get("tag") if isinstance(server.get("tag"), str) else f"__dns_index_{idx}"
+                add_node(f"dns:{tag}")
+
+        for outbound in config.get("outbounds", []):
+            if not isinstance(outbound, dict) or not isinstance(outbound.get("tag"), str):
+                continue
+            src = f"outbound:{outbound['tag']}"
+            detour = outbound.get("detour")
+            if isinstance(detour, str):
+                edges[src].add(f"outbound:{detour}")
+
+        if isinstance(dns_servers, list):
+            for idx, server in enumerate(dns_servers):
+                if not isinstance(server, dict):
+                    continue
+                tag = server.get("tag") if isinstance(server.get("tag"), str) else f"__dns_index_{idx}"
+                src = f"dns:{tag}"
+                detour = server.get("detour")
+                if isinstance(detour, str):
+                    edges[src].add(f"outbound:{detour}")
+
+        visiting: set[str] = set()
+        visited: set[str] = set()
+        stack: list[str] = []
+
+        def dfs(node: str) -> None:
+            if node in visited:
+                return
+            if node in visiting:
+                cycle_start = stack.index(node) if node in stack else 0
+                cycle = stack[cycle_start:] + [node]
+                raise ValueError(f"detour cycle detected: {' -> '.join(cycle)}")
+            visiting.add(node)
+            stack.append(node)
+            for nxt in edges.get(node, set()):
+                if nxt in nodes:
+                    dfs(nxt)
+            stack.pop()
+            visiting.remove(node)
+            visited.add(node)
+
+        for node in list(nodes):
+            dfs(node)
+
+    def _collect_named_refs(self, node: Any, target_keys: set[str], out: set[str]) -> None:
+        if isinstance(node, dict):
+            for key, value in node.items():
+                if key in target_keys and isinstance(value, str):
+                    out.add(value)
+                self._collect_named_refs(value, target_keys, out)
+            return
+        if isinstance(node, list):
+            for item in node:
+                self._collect_named_refs(item, target_keys, out)

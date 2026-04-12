@@ -19,6 +19,26 @@ RECOMMENDED_BASE_CONFIG = {
     "route": {"rules": []},
 }
 
+UI_SECURE_DEFAULTS = {
+    "udp_over_tcp": True,
+}
+
+ROOT_ALLOWED_KEYS = {
+    "log",
+    "dns",
+    "ntp",
+    "certificate",
+    "certificate_providers",
+    "endpoints",
+    "inbounds",
+    "outbounds",
+    "route",
+    "services",
+    "experimental",
+}
+
+ROOT_SHARED_KEYS = ("tls", "transport", "v2ray_transport", "multiplex", "multipath", "mux")
+
 # UI schema hints: fields that should be rendered as enum select widgets.
 # Keep this list aligned with sing-box docs and tests' expected_config values.
 ENUM_FIELD_OPTIONS = {
