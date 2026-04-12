@@ -288,6 +288,9 @@ const ProjectLinter = {
   },
   validateProject(config) {
     const errors = [];
+    Object.keys(config || {}).forEach((key) => {
+      if (!ROOT_ALLOWED_KEYS.has(key)) errors.push(`非法根級字段: ${key}`);
+    });
     const ports = (config.inbounds || []).map((i) => i?.listen_port).filter((p) => Number.isInteger(p));
     const dup = ports.find((p, i) => ports.indexOf(p) !== i);
     if (dup) errors.push(`端口衝突：inbounds.listen_port ${dup} 重複`);
@@ -580,6 +583,17 @@ function pushBlockFromPayload(moduleName, payload, preferredPageId = '', titleFa
   addBlockByPage(moduleName, page, { ...payload, __title: title });
 }
 
+function pushSharedBlocksFromParent(parentPayload, sharedTarget) {
+  if (!parentPayload || typeof parentPayload !== 'object') return;
+  Object.entries(SHARED_NESTED_PAGE_TO_KEY).forEach(([pageId, nestedKey]) => {
+    const nested = parentPayload[nestedKey];
+    if (!nested || typeof nested !== 'object') return;
+    const page = findBestPage('shared', nested, pageId);
+    if (!page) return;
+    addBlockByPage('shared', page, { ...nested, __title: `↳ ${page.title || pageId}`, __sharedTarget: sharedTarget });
+  });
+}
+
 function syncUIFromCurrentConfig(config) {
   if (!config || typeof config !== 'object') return;
   const inbounds = Array.isArray(config.inbounds) ? config.inbounds : [];
@@ -593,9 +607,11 @@ function syncUIFromCurrentConfig(config) {
   inbounds.forEach((inbound) => {
     const title = inbound?.type === 'tun' ? 'TUN Inbound' : '';
     pushBlockFromPayload('inbound', inbound, inbound?.type || '', title);
+    pushSharedBlocksFromParent(inbound, 'inbound');
   });
   outbounds.forEach((outbound) => {
     pushBlockFromPayload('outbound', outbound, outbound?.type || '');
+    pushSharedBlocksFromParent(outbound, 'outbound');
   });
   dnsServers.forEach((server) => {
     pushBlockFromPayload('dns', server, server?.type || 'server', 'DNS Server');
@@ -654,6 +670,7 @@ function renderWorkspace() {
           <div class="meta">${escapeHtml(block.moduleName)} · ${escapeHtml(block.sourcePath || block.pageId)}${escapeHtml(scopeMeta)}</div>
         </div>
         <div class="controls">
+          ${block.moduleName === 'shared' ? '<label class="toggle">歸屬<select data-role="shared-target"><option value="outbound">outbound</option><option value="inbound">inbound</option></select></label>' : ''}
           <label class="toggle"><input type="checkbox" ${block.active ? 'checked' : ''} data-role="toggle">啟用</label>
           <button class="delete" data-role="delete">刪除</button>
         </div>
@@ -671,6 +688,14 @@ function renderWorkspace() {
       renderWorkspace();
       rerenderOutput();
     };
+    if (block.moduleName === 'shared') {
+      const targetSel = card.querySelector('[data-role="shared-target"]');
+      targetSel.value = block.sharedTarget || 'outbound';
+      targetSel.onchange = (e) => {
+        block.sharedTarget = e.target.value;
+        rerenderOutput();
+      };
+    }
 
     const grid = card.querySelector('.grid');
     Object.entries(block.fields).forEach(([fieldName, spec]) => {
