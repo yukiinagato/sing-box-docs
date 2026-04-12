@@ -262,6 +262,51 @@
       padding: 4px;
       font-size: 13px;
     }
+    .array-object-container {
+      border: 1px dashed var(--border);
+      border-radius: 10px;
+      padding: 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      background: #0f1830;
+    }
+    .array-object-toolbar {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+    .array-item {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: #13203d;
+      padding: 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      cursor: grab;
+    }
+    .array-item.drag-over { border-color: var(--accent); }
+    .array-item-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 12px;
+      color: #c8dafc;
+    }
+    .array-item-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill,minmax(180px,1fr));
+      gap: 8px;
+    }
+    .array-empty {
+      font-size: 12px;
+      color: var(--muted);
+      border: 1px dashed var(--border);
+      border-radius: 8px;
+      padding: 10px;
+      text-align: center;
+    }
     .error-panel {
       border-top: 1px solid var(--border);
       padding: 10px 12px;
@@ -378,6 +423,17 @@ const BLOCK_TYPE_REGISTRY = {
   'dns-in': { moduleName: 'inbound', pageId: 'direct', title: 'DNS Inbound', preset: { type: 'dns', tag: 'dns-in', listen: '127.0.0.1', listen_port: 5353 } },
   'shadowsocks-in': { moduleName: 'inbound', pageId: 'shadowsocks', title: 'Shadowsocks Inbound', preset: { type: 'shadowsocks', tag: 'shadowsocks-in', listen: '0.0.0.0', listen_port: 8388 } },
   'direct-out': { moduleName: 'outbound', pageId: 'direct', title: 'Direct Outbound', preset: { type: 'direct', tag: 'direct-out' } },
+};
+
+const ARRAY_OBJECT_TEMPLATES = {
+  'route_root.rule_set': [
+    { id: 'remote', label: '遠端規則 (Remote Rule-Set)', payload: { type: 'remote', tag: '', format: 'binary', url: '', download_detour: '' } },
+    { id: 'inline', label: '本地規則 (Inline Rule-Set)', payload: { type: 'inline', tag: '', format: 'source', rules: [] } },
+  ],
+  'dns_root.rules': [
+    { id: 'server', label: '轉發規則 (Server)', payload: { server: '' } },
+    { id: 'reject', label: '攔截規則 (Reject)', payload: { action: 'reject' } },
+  ],
 };
 
 const ProjectLinter = {
@@ -989,7 +1045,7 @@ function bindWorkspaceDelegation() {
   els.blocks.addEventListener('input', (event) => {
     const field = event.target.closest('[data-block-id][data-field-path]');
     if (!field) return;
-    if (field.dataset.role === 'object-toggle' || field.dataset.role === 'tag-editor') return;
+    if (field.dataset.role === 'object-toggle' || field.dataset.role === 'tag-editor' || field.dataset.role === 'array-object-field') return;
     handleFieldMutation(field);
   });
 
@@ -1027,6 +1083,22 @@ function bindWorkspaceDelegation() {
 
     const field = target.closest('[data-block-id][data-field-path]');
     if (!field) return;
+    if (target.dataset.role === 'array-object-field') {
+      const blockId = target.dataset.blockId;
+      const fieldPath = target.dataset.fieldPath;
+      const itemIndex = Number(target.dataset.itemIndex);
+      const itemKey = target.dataset.itemKey;
+      const currentBlock = state.blocksData.find((item) => item.id === blockId);
+      const list = currentBlock ? getNestedValue(currentBlock.values, fieldPath) : null;
+      if (!currentBlock || !Array.isArray(list) || Number.isNaN(itemIndex) || !itemKey) return;
+      const next = [...list];
+      const nextItem = next[itemIndex] && typeof next[itemIndex] === 'object' ? { ...next[itemIndex] } : {};
+      nextItem[itemKey] = parseArrayObjectFieldValue(target.dataset.fieldType, target);
+      next[itemIndex] = nextItem;
+      setNestedValue(currentBlock.values, fieldPath, next);
+      rerenderOutput({ refreshWorkspace: true, preserveFocus: true });
+      return;
+    }
     handleFieldMutation(field);
   });
 
@@ -1055,6 +1127,33 @@ function bindWorkspaceDelegation() {
       value.splice(chipIndex, 1);
       setNestedValue(block.values, fieldPath, value);
       rerenderOutput({ refreshWorkspace: false });
+      return;
+    }
+
+    if (target.dataset.role === 'array-object-add') {
+      const fieldPath = target.dataset.fieldPath;
+      if (!fieldPath) return;
+      const list = getNestedValue(block.values, fieldPath);
+      const templates = getArrayObjectTemplates(block, fieldPath);
+      const select = card.querySelector(`[data-role="array-template-select"][data-field-path="${CSS.escape(fieldPath)}"]`);
+      const selectedId = select?.value;
+      const tpl = templates.find((item) => item.id === selectedId) || templates[0];
+      const nextItem = structuredClone(tpl?.payload || {});
+      const next = Array.isArray(list) ? [...list, nextItem] : [nextItem];
+      setNestedValue(block.values, fieldPath, next);
+      rerenderOutput({ refreshWorkspace: true });
+      return;
+    }
+
+    if (target.dataset.role === 'array-object-delete') {
+      const fieldPath = target.closest('.array-item')?.dataset.fieldPath;
+      const itemIndex = Number(target.dataset.itemIndex);
+      const list = getNestedValue(block.values, fieldPath);
+      if (!fieldPath || !Array.isArray(list) || Number.isNaN(itemIndex)) return;
+      const next = [...list];
+      next.splice(itemIndex, 1);
+      setNestedValue(block.values, fieldPath, next);
+      rerenderOutput({ refreshWorkspace: true });
       return;
     }
 
@@ -1153,7 +1252,7 @@ function renderField(block, fieldName, spec, depth = 0, breadcrumb = []) {
     });
     switchWrap.appendChild(input);
     wrap.appendChild(switchWrap);
-  } else if (type === 'array_integer' || type === 'array_string' || type === 'array_object') {
+  } else if (type === 'array_integer' || type === 'array_string') {
     const list = Array.isArray(current) ? current : [];
     const tagWrap = document.createElement('div');
     tagWrap.className = 'tag-input';
@@ -1170,6 +1269,10 @@ function renderField(block, fieldName, spec, depth = 0, breadcrumb = []) {
     input.dataset.role = 'tag-editor';
     tagWrap.appendChild(input);
     wrap.appendChild(tagWrap);
+  } else if (type === 'array_object') {
+    const list = Array.isArray(current) ? current : [];
+    wrap.appendChild(renderArrayObjectField(block, fieldName, list));
+    input = null;
   } else if (type === 'object') {
     const objectWrap = document.createElement('div');
     const objectToggle = document.createElement('label');
@@ -1205,7 +1308,7 @@ function renderField(block, fieldName, spec, depth = 0, breadcrumb = []) {
 
   if (input) {
     bindFieldDataset(input, block.id, fieldName, type);
-    if (!(type === 'boolean' || type === 'array_integer' || type === 'array_object')) {
+    if (!(type === 'boolean' || type === 'array_integer' || type === 'array_string' || type === 'array_object')) {
       wrap.appendChild(input);
     }
   }
@@ -1254,6 +1357,183 @@ function shouldRenderField(block, fieldName) {
   return true;
 }
 
+function getArrayTemplateKey(block, fieldName) {
+  return `${block.role}.${fieldName}`;
+}
+
+function getArrayObjectTemplates(block, fieldName) {
+  return ARRAY_OBJECT_TEMPLATES[getArrayTemplateKey(block, fieldName)] || [];
+}
+
+function getArrayObjectItemLabel(fieldName, item, index) {
+  if (fieldName === 'rule_set') {
+    return item?.tag ? `${item.type || 'rule_set'} · ${item.tag}` : `rule_set #${index + 1}`;
+  }
+  if (fieldName === 'rules') {
+    return item?.action ? `rule_action · ${item.action}` : `rule #${index + 1}`;
+  }
+  return `item #${index + 1}`;
+}
+
+function getArrayObjectVisibleKeys(fieldName, item) {
+  const keys = Object.keys(item || {});
+  if (fieldName !== 'rule_set') return keys;
+  const type = String(item?.type || '').toLowerCase();
+  const base = ['type', 'tag', 'format'];
+  if (type === 'remote') return [...new Set([...base, 'url', 'download_detour', 'update_interval', 'path', ...keys])];
+  if (type === 'inline' || type === 'local') return [...new Set([...base, 'path', 'rules', ...keys])];
+  return keys;
+}
+
+function parseArrayObjectFieldValue(type, input) {
+  if (type === 'boolean') return Boolean(input.checked);
+  if (type === 'integer') return Number(input.value || 0);
+  if (type === 'array_integer' || type === 'array_string' || type === 'array_object' || type === 'object') {
+    try {
+      return input.value.trim() ? JSON.parse(input.value) : (type === 'object' ? {} : []);
+    } catch {
+      return input.value;
+    }
+  }
+  return input.value;
+}
+
+function bindArrayItemDrag(card) {
+  card.addEventListener('dragstart', (e) => {
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', card.dataset.arrayIndex);
+  });
+  card.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    card.classList.add('drag-over');
+  });
+  card.addEventListener('dragleave', () => card.classList.remove('drag-over'));
+  card.addEventListener('drop', (e) => {
+    e.preventDefault();
+    card.classList.remove('drag-over');
+    const block = state.blocksData.find((item) => item.id === card.dataset.blockId);
+    if (!block) return;
+    const fieldPath = card.dataset.fieldPath;
+    const list = getNestedValue(block.values, fieldPath);
+    if (!Array.isArray(list)) return;
+    const from = Number(e.dataTransfer.getData('text/plain'));
+    const to = Number(card.dataset.arrayIndex);
+    if (Number.isNaN(from) || Number.isNaN(to) || from === to) return;
+    const next = [...list];
+    const [moved] = next.splice(from, 1);
+    next.splice(to, 0, moved);
+    setNestedValue(block.values, fieldPath, next);
+    rerenderOutput({ refreshWorkspace: true });
+  });
+}
+
+function renderArrayObjectItemField(block, fieldPath, itemIndex, key, value) {
+  const field = document.createElement('label');
+  field.className = 'field';
+  const spec = inferSpecFromValue(value);
+  const allowed = extractEnumValues(key, spec);
+  field.innerHTML = `<span>${escapeHtml(key)}</span>`;
+  let input;
+  if (allowed?.length) {
+    input = document.createElement('select');
+    allowed.forEach((v) => {
+      const opt = document.createElement('option');
+      opt.value = String(v);
+      opt.textContent = String(v);
+      if (String(value ?? '') === String(v)) opt.selected = true;
+      input.appendChild(opt);
+    });
+  } else if (spec.type === 'boolean') {
+    input = document.createElement('input');
+    input.type = 'checkbox';
+    input.checked = Boolean(value);
+  } else if (spec.type === 'integer') {
+    input = document.createElement('input');
+    input.type = 'number';
+    input.value = Number.isFinite(value) ? String(value) : '0';
+  } else if (spec.type === 'array_integer' || spec.type === 'array_string' || spec.type === 'array_object' || spec.type === 'object') {
+    input = document.createElement('textarea');
+    input.value = safeStringify(value ?? (spec.type === 'object' ? {} : []), 2);
+    input.placeholder = spec.type === 'object' ? '{"key":"value"}' : '[]';
+  } else {
+    input = document.createElement('input');
+    input.type = 'text';
+    input.value = value ?? '';
+  }
+  input.dataset.role = 'array-object-field';
+  input.dataset.blockId = block.id;
+  input.dataset.fieldPath = fieldPath;
+  input.dataset.itemIndex = String(itemIndex);
+  input.dataset.itemKey = key;
+  input.dataset.fieldType = spec.type || 'string';
+  field.appendChild(input);
+  return field;
+}
+
+function renderArrayObjectField(block, fieldPath, list) {
+  const container = document.createElement('div');
+  container.className = 'array-object-container';
+  const templates = getArrayObjectTemplates(block, fieldPath);
+
+  const toolbar = document.createElement('div');
+  toolbar.className = 'array-object-toolbar';
+  if (templates.length > 1) {
+    const select = document.createElement('select');
+    select.dataset.role = 'array-template-select';
+    select.dataset.blockId = block.id;
+    select.dataset.fieldPath = fieldPath;
+    templates.forEach((tpl) => {
+      const opt = document.createElement('option');
+      opt.value = tpl.id;
+      opt.textContent = tpl.label;
+      select.appendChild(opt);
+    });
+    toolbar.appendChild(select);
+  }
+  const addBtn = document.createElement('button');
+  addBtn.type = 'button';
+  addBtn.className = 'btn';
+  addBtn.textContent = '+ Add Item';
+  addBtn.dataset.role = 'array-object-add';
+  addBtn.dataset.blockId = block.id;
+  addBtn.dataset.fieldPath = fieldPath;
+  toolbar.appendChild(addBtn);
+  container.appendChild(toolbar);
+
+  if (!list.length) {
+    const empty = document.createElement('div');
+    empty.className = 'array-empty';
+    empty.textContent = '尚未新增子積木，點擊 + Add Item 建立。';
+    container.appendChild(empty);
+  }
+
+  list.forEach((item, index) => {
+    const card = document.createElement('article');
+    card.className = 'array-item';
+    card.draggable = true;
+    card.dataset.arrayIndex = String(index);
+    card.dataset.blockId = block.id;
+    card.dataset.fieldPath = fieldPath;
+    card.innerHTML = `
+      <div class="array-item-header">
+        <strong>${escapeHtml(getArrayObjectItemLabel(fieldPath, item, index))}</strong>
+        <button type="button" class="delete" data-role="array-object-delete" data-item-index="${index}">x</button>
+      </div>
+    `;
+    bindArrayItemDrag(card);
+    const body = document.createElement('div');
+    body.className = 'array-item-grid';
+    const keys = getArrayObjectVisibleKeys(fieldPath, item);
+    keys.forEach((key) => {
+      body.appendChild(renderArrayObjectItemField(block, fieldPath, index, key, item?.[key]));
+    });
+    card.appendChild(body);
+    container.appendChild(card);
+  });
+
+  return container;
+}
+
 function bindFieldDataset(input, blockId, fieldPath, type) {
   input.dataset.blockId = blockId;
   input.dataset.fieldPath = fieldPath;
@@ -1263,7 +1543,7 @@ function bindFieldDataset(input, blockId, fieldPath, type) {
 function readInputValue(input, type) {
   if (type === 'boolean') return input.checked;
   if (type === 'integer') return Number(input.value || 0);
-  if (type === 'array_integer' || type === 'array_string' || type === 'array_object') return input.value;
+  if (type === 'array_integer' || type === 'array_string') return input.value;
   if (type === 'object') {
     try {
       return input.value.trim() ? JSON.parse(input.value) : {};
@@ -1608,7 +1888,7 @@ function pruneEmpty(input) {
     return normalized.length ? normalized : undefined;
   }
   if (!input || typeof input !== 'object') {
-    if (input === '' || input === null) return undefined;
+    if (input === '' || input === null || input === false || input === 0) return undefined;
     return input;
   }
 
