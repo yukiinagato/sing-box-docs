@@ -233,16 +233,25 @@ const ARRAY_BUCKETS = {
 };
 
 const ROOT_ALLOWED_KEYS = new Set([
-  'log', 'dns', 'ntp', 'certificate', 'certificate_providers',
-  'endpoints', 'inbounds', 'outbounds', 'route', 'services', 'experimental'
+  'log',
+  'dns',
+  'ntp',
+  'certificate',
+  'certificate_providers',
+  'endpoints',
+  'inbounds',
+  'outbounds',
+  'route',
+  'services',
+  'experimental',
 ]);
 
-const SHARED_NESTED_PAGE_TO_KEY = {
+const ROOT_SHARED_KEYS = ['tls', 'transport', 'multiplex', 'multipath'];
+const SHARED_PAGE_TO_PROPERTY = {
   tls: 'tls',
   multiplex: 'multiplex',
+  multipath: 'multipath',
   'v2ray-transport': 'transport',
-  'tcp-brutal': 'tcp_brutal',
-  'udp-over-tcp': 'udp_over_tcp',
 };
 
 const KNOWN_SCHEMA_FILES = [
@@ -479,8 +488,18 @@ function createBlock(moduleName, page, preset = {}) {
     fields: page.fields || {},
     values,
     basePayload,
-    sharedTarget: preset.__sharedTarget || 'outbound',
+    parentId: moduleName === 'shared' ? findPreferredSharedParentId() : null,
   };
+}
+
+function findPreferredSharedParentId() {
+  for (let i = state.blocksData.length - 1; i >= 0; i -= 1) {
+    const block = state.blocksData[i];
+    if (block.moduleName === 'inbound' || block.moduleName === 'outbound' || block.moduleName === 'endpoint') {
+      return block.id;
+    }
+  }
+  return null;
 }
 
 function addBlockByPage(moduleName, page, preset = {}) {
@@ -640,11 +659,15 @@ function renderWorkspace() {
     card.draggable = true;
     card.dataset.index = String(index);
 
+    const parentBlock = block.parentId ? state.blocksData.find((b) => b.id === block.parentId) : null;
+    const scopeMeta = block.moduleName === 'shared'
+      ? ` ↳ nested in ${parentBlock?.title || '未綁定主塊'}`
+      : '';
     card.innerHTML = `
       <div class="block-header">
         <div>
           <div class="title">${escapeHtml(block.title)}</div>
-          <div class="meta">${escapeHtml(block.moduleName)} · ${escapeHtml(block.sourcePath || block.pageId)}${block.moduleName === 'shared' ? ` · 子塊 → ${escapeHtml(block.sharedTarget)}` : ''}</div>
+          <div class="meta">${escapeHtml(block.moduleName)} · ${escapeHtml(block.sourcePath || block.pageId)}${escapeHtml(scopeMeta)}</div>
         </div>
         <div class="controls">
           ${block.moduleName === 'shared' ? '<label class="toggle">歸屬<select data-role="shared-target"><option value="outbound">outbound</option><option value="inbound">inbound</option></select></label>' : ''}
@@ -865,42 +888,33 @@ function migrateLegacy14(result, errors) {
   }
   if (!Array.isArray(result.route.rules)) result.route.rules = [];
 
-  const inbounds = Array.isArray(result.inbounds) ? result.inbounds : [];
-  const outbounds = Array.isArray(result.outbounds) ? result.outbounds : [];
-  for (const key of Object.keys(result)) {
-    if (ROOT_ALLOWED_KEYS.has(key)) continue;
-    if (key === 'tls' || key === 'transport' || key === 'multiplex' || key === 'tcp_brutal' || key === 'udp_over_tcp') {
-      const target = outbounds[0] || inbounds[0];
-      if (target && typeof target === 'object') {
-        target[key] = result[key];
-        delete result[key];
-        errors.push(`已自動修復頂級污染：$.${key} 已遷移到 ${outbounds[0] ? 'outbounds[0]' : 'inbounds[0]'}.${key}`);
-        continue;
+  for (const key of ROOT_SHARED_KEYS) {
+    if (!Object.hasOwn(result, key)) continue;
+    const value = result[key];
+    let migrated = 0;
+    for (const section of ['inbounds', 'outbounds', 'endpoints']) {
+      const nodes = Array.isArray(result[section]) ? result[section] : [];
+      for (const node of nodes) {
+        if (!node || typeof node !== 'object' || Object.hasOwn(node, key)) continue;
+        node[key] = structuredClone(value);
+        migrated += 1;
       }
     }
     delete result[key];
-    errors.push(`檢測到非法根級字段 $.${key}，已移除`);
+    if (migrated) {
+      errors.push(`已將根級 ${key} 遷移為 inbounds/outbounds/endpoints 子屬性`);
+    } else {
+      errors.push(`檢測到非法根級字段 ${key}，但無可遷移主塊，已移除`);
+    }
   }
 }
 
-function attachSharedPayload(result, block, payload, errors) {
-  const nestedKey = SHARED_NESTED_PAGE_TO_KEY[block.pageId];
-  if (!nestedKey) {
-    errors.push(`Shared 塊 ${block.pageId} 目前僅支持作為共享子對象（tls/transport/multiplex/tcp_brutal/udp_over_tcp）`);
-    return;
+function enforceRootWhitelist(result, errors) {
+  for (const key of Object.keys(result)) {
+    if (ROOT_ALLOWED_KEYS.has(key)) continue;
+    delete result[key];
+    errors.push(`非法根級字段已移除: ${key}`);
   }
-  const targetBucket = block.sharedTarget === 'inbound' ? 'inbounds' : 'outbounds';
-  const targetList = result[targetBucket];
-  if (!Array.isArray(targetList) || !targetList.length) {
-    errors.push(`Shared 塊 ${block.pageId} 缺少父級 ${targetBucket}，無法嵌套`);
-    return;
-  }
-  const parent = targetList[targetList.length - 1];
-  if (!parent || typeof parent !== 'object') {
-    errors.push(`Shared 塊 ${block.pageId} 父級 ${targetBucket} 不是對象`);
-    return;
-  }
-  parent[nestedKey] = { ...(parent[nestedKey] || {}), ...payload };
 }
 
 function buildWizardConfig() {
@@ -1009,6 +1023,7 @@ function buildMergedConfig() {
     services: []
   };
   const errors = [...state.errors];
+  const payloadByBlockId = new Map();
 
   for (const block of state.blocksData) {
     if (!block.active) continue;
@@ -1026,6 +1041,12 @@ function buildMergedConfig() {
       if (value === '' || value === null || value === undefined) continue;
       payload[name] = value;
     }
+    payloadByBlockId.set(block.id, payload);
+  }
+
+  for (const block of state.blocksData) {
+    if (!block.active) continue;
+    const payload = payloadByBlockId.get(block.id) || {};
 
     const bucket = ARRAY_BUCKETS[block.moduleName];
     if (bucket === 'inbounds' || bucket === 'outbounds' || bucket === 'endpoints' || bucket === 'services') {
@@ -1036,7 +1057,13 @@ function buildMergedConfig() {
     } else if (block.moduleName === 'log') {
       Object.assign(result.log, payload);
     } else if (block.moduleName === 'shared') {
-      attachSharedPayload(result, block, payload, errors);
+      const target = payloadByBlockId.get(block.parentId);
+      const nestedKey = SHARED_PAGE_TO_PROPERTY[block.pageId] || block.pageId;
+      if (!target) {
+        errors.push(`${block.title}: Shared 模塊未綁定 inbound/outbound/endpoint，已忽略`);
+        continue;
+      }
+      target[nestedKey] = payload;
     } else {
       if (!result[block.moduleName]) result[block.moduleName] = [];
       result[block.moduleName].push(payload);
@@ -1047,6 +1074,7 @@ function buildMergedConfig() {
     if (Array.isArray(result[key]) && result[key].length === 0) delete result[key];
   }
   migrateLegacy14(result, errors);
+  enforceRootWhitelist(result, errors);
 
   return { result, errors };
 }
