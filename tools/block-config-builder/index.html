@@ -112,6 +112,12 @@
     .btn.primary { background: var(--accent); border-color: transparent; }
     .btn.danger { background: color-mix(in srgb, var(--danger) 20%, #2a0d14); border-color: color-mix(in srgb, var(--danger) 50%, var(--border)); }
     .blocks { padding: 12px; overflow: auto; display: flex; flex-direction: column; gap: 12px; }
+    .blocks.generating { opacity: .5; pointer-events: none; }
+    .blocks.fade-in { animation: workspace-fade-in .28s ease; }
+    @keyframes workspace-fade-in {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
     .empty { border: 1px dashed var(--border); border-radius: 10px; padding: 18px; color: var(--muted); text-align: center; }
     .block {
       border: 1px solid var(--border);
@@ -209,7 +215,7 @@
 <script type="module">
 const state = {
   schemas: new Map(),
-  blocks: [],
+  blocksData: [],
   errors: [],
   wizard: {
     scenario: 'none',
@@ -229,6 +235,48 @@ const ARRAY_BUCKETS = {
 const KNOWN_SCHEMA_FILES = [
   'certificate.json','dns.json','endpoint.json','experimental.json','inbound.json','log.json','ntp.json','outbound.json','route.json','rule-set.json','service.json','shared.json'
 ];
+
+const BLOCK_TYPE_REGISTRY = {
+  'socks-in': { moduleName: 'inbound', pageId: 'socks', title: 'SOCKS Inbound', preset: { type: 'socks', tag: 'socks-in', listen: '127.0.0.1', listen_port: 1080 } },
+  'http-in': { moduleName: 'inbound', pageId: 'http', title: 'HTTP Inbound', preset: { type: 'http', tag: 'http-in', listen: '127.0.0.1', listen_port: 8080 } },
+  'mixed-in': { moduleName: 'inbound', pageId: 'mixed', title: 'Mixed Inbound', preset: { type: 'mixed', tag: 'mixed-in', listen: '127.0.0.1', listen_port: 2080 } },
+  'dns-in': { moduleName: 'inbound', pageId: 'direct', title: 'DNS Inbound', preset: { type: 'dns', tag: 'dns-in', listen: '127.0.0.1', listen_port: 5353 } },
+  'shadowsocks-in': { moduleName: 'inbound', pageId: 'shadowsocks', title: 'Shadowsocks Inbound', preset: { type: 'shadowsocks', tag: 'shadowsocks-in', listen: '0.0.0.0', listen_port: 8388 } },
+  'direct-out': { moduleName: 'outbound', pageId: 'direct', title: 'Direct Outbound', preset: { type: 'direct', tag: 'direct-out' } },
+};
+
+const SCENARIO_BLOCK_MAPPING = {
+  hub: ['socks-in', 'http-in', 'mixed-in', 'dns-in'],
+  landing: ['shadowsocks-in', 'direct-out'],
+};
+
+const ProjectLinter = {
+  validateWizardData(scenario, data) {
+    const errors = [];
+    if (scenario === 'hub') {
+      const pairs = [
+        ['SOCKS', Number(data.socksPort)],
+        ['HTTP', Number(data.httpPort)],
+        ['Mixed', Number(data.mixedPort)],
+        ['DNS', Number(data.dnsPort)],
+      ];
+      const ports = pairs.map(([, p]) => p);
+      pairs.forEach(([name, p]) => {
+        if (!Number.isInteger(p) || p <= 0 || p > 65535) errors.push(`${name} 端口需介於 1-65535。`);
+      });
+      const dup = ports.find((p, i) => ports.indexOf(p) !== i);
+      if (dup) errors.push(`端口衝突：${dup} 被重複使用。`);
+    }
+    return errors;
+  },
+  validateProject(config) {
+    const errors = [];
+    const ports = (config.inbounds || []).map((i) => i?.listen_port).filter((p) => Number.isInteger(p));
+    const dup = ports.find((p, i) => ports.indexOf(p) !== i);
+    if (dup) errors.push(`端口衝突：inbounds.listen_port ${dup} 重複`);
+    return errors;
+  },
+};
 
 const els = {
   wizard: document.getElementById('wizard'),
@@ -266,6 +314,7 @@ function renderWizard() {
             <option value="transparent">E: 透明代理網關</option>
             <option value="split">F: 進階策略分流</option>
             <option value="hub">G: 混合入站中心</option>
+            <option value="landing">B: 落地服務端</option>
           </select>
         </label>
         <div id="wiz-fields"></div>
@@ -280,8 +329,7 @@ function renderWizard() {
     renderWizardFields();
   };
   document.getElementById('wiz-apply').onclick = () => {
-    state.wizard.data = collectWizardData();
-    rerenderOutput();
+    applyWizardScenario();
   };
   renderWizardFields();
 }
@@ -321,6 +369,11 @@ function renderWizardFields() {
       <label class="field"><span>HTTP 端口</span><input data-w="httpPort" type="number" value="8080"></label>
       <label class="field"><span>Mixed 端口</span><input data-w="mixedPort" type="number" value="2080"></label>
       <label class="field"><span>DNS 端口</span><input data-w="dnsPort" type="number" value="5353"></label>
+    `;
+  } else if (s === 'landing') {
+    wrap.innerHTML = `
+      <label class="field"><span>Shadowsocks 端口</span><input data-w="ssPort" type="number" value="8388"></label>
+      <label class="field"><span>服務監聽地址</span><input data-w="listen" value="0.0.0.0"></label>
     `;
   } else {
     wrap.innerHTML = '<div class="meta">選擇場景後可生成 1.14 兼容模板。</div>';
@@ -384,7 +437,7 @@ function renderLibrary() {
       btn.className = 'library-btn';
       btn.textContent = page.title || page.page_id;
       btn.onclick = () => {
-        state.blocks.push(createBlock(module.module, page));
+        addBlockByPage(module.module, page);
         renderWorkspace();
         rerenderOutput();
       };
@@ -394,21 +447,79 @@ function renderLibrary() {
   }
 }
 
-function createBlock(moduleName, page) {
+function createBlock(moduleName, page, preset = {}) {
   const values = {};
   for (const [field, spec] of Object.entries(page.fields || {})) {
     values[field] = inferDefault(spec);
   }
+  Object.assign(values, preset);
   return {
     id: crypto.randomUUID(),
     moduleName,
     pageId: page.page_id,
-    title: page.title || page.page_id,
+    title: preset.__title || page.title || page.page_id,
     sourcePath: page.source_path,
     active: true,
     fields: page.fields || {},
     values,
   };
+}
+
+function addBlockByPage(moduleName, page, preset = {}) {
+  state.blocksData.push(createBlock(moduleName, page, preset));
+}
+
+function addBlock(type, presetOverride = {}) {
+  const def = BLOCK_TYPE_REGISTRY[type];
+  if (!def) return null;
+  const module = state.schemas.get(def.moduleName);
+  const page = module?.pages?.find(p => p.page_id === def.pageId) || module?.pages?.[0];
+  if (!page) return null;
+  const preset = { ...(def.preset || {}), ...presetOverride, __title: def.title };
+  addBlockByPage(def.moduleName, page, preset);
+  return state.blocksData[state.blocksData.length - 1];
+}
+
+async function applyWizardScenario() {
+  state.wizard.data = collectWizardData();
+  const preErrors = ProjectLinter.validateWizardData(state.wizard.scenario, state.wizard.data);
+  if (preErrors.length) {
+    els.errors.hidden = false;
+    els.errors.textContent = preErrors.join('\n');
+    return;
+  }
+  const mapped = SCENARIO_BLOCK_MAPPING[state.wizard.scenario];
+  if (!mapped?.length) {
+    rerenderOutput();
+    return;
+  }
+  els.blocks.classList.add('generating');
+  await new Promise((r) => setTimeout(r, 120));
+  state.blocksData = [];
+  const w = state.wizard.data;
+  const presetByType = {
+    'socks-in': { listen_port: Number(w.socksPort) || 1080 },
+    'http-in': { listen_port: Number(w.httpPort) || 8080 },
+    'mixed-in': { listen_port: Number(w.mixedPort) || 2080 },
+    'dns-in': { listen_port: Number(w.dnsPort) || 5353 },
+    'shadowsocks-in': { listen_port: Number(w.ssPort) || 8388, listen: w.listen || '0.0.0.0' },
+  };
+  mapped.forEach((type) => addBlock(type, presetByType[type]));
+  const lintErrors = ProjectLinter.validateProject(buildMergedConfig().result);
+  if (lintErrors.length) {
+    state.blocksData = [];
+    renderWorkspace();
+    els.blocks.classList.remove('generating');
+    els.errors.hidden = false;
+    els.errors.textContent = lintErrors.join('\n');
+    return;
+  }
+  renderWorkspace();
+  rerenderOutput();
+  els.blocks.classList.remove('generating');
+  els.blocks.classList.remove('fade-in');
+  void els.blocks.offsetWidth;
+  els.blocks.classList.add('fade-in');
 }
 
 function inferDefault(spec) {
@@ -428,13 +539,13 @@ function inferDefault(spec) {
 }
 
 function renderWorkspace() {
-  if (!state.blocks.length) {
+  if (!state.blocksData.length) {
     els.blocks.innerHTML = '<div class="empty">從左側選擇任意 Schema 頁面以新增第一個 Block。</div>';
     return;
   }
 
   els.blocks.innerHTML = '';
-  state.blocks.forEach((block, index) => {
+  state.blocksData.forEach((block, index) => {
     const card = document.createElement('article');
     card.className = 'block';
     card.draggable = true;
@@ -460,7 +571,7 @@ function renderWorkspace() {
       rerenderOutput();
     };
     card.querySelector('[data-role="delete"]').onclick = () => {
-      state.blocks.splice(index, 1);
+      state.blocksData.splice(index, 1);
       renderWorkspace();
       rerenderOutput();
     };
@@ -490,8 +601,8 @@ function bindDragHandlers(card) {
     const from = Number(e.dataTransfer.getData('text/plain'));
     const to = Number(card.dataset.index);
     if (Number.isNaN(from) || Number.isNaN(to) || from === to) return;
-    const [moved] = state.blocks.splice(from, 1);
-    state.blocks.splice(to, 0, moved);
+    const [moved] = state.blocksData.splice(from, 1);
+    state.blocksData.splice(to, 0, moved);
     renderWorkspace();
     rerenderOutput();
   });
@@ -795,7 +906,7 @@ function buildMergedConfig() {
   };
   const errors = [...state.errors];
 
-  for (const block of state.blocks) {
+  for (const block of state.blocksData) {
     if (!block.active) continue;
     const payload = {};
 
@@ -848,7 +959,7 @@ function rerenderOutput() {
 
 function bindGlobalActions() {
   els.reset.onclick = () => {
-    state.blocks = [];
+    state.blocksData = [];
     state.errors = [];
     renderWorkspace();
     rerenderOutput();
