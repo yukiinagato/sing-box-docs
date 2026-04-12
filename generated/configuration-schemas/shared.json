@@ -774,8 +774,8 @@
             "no",
             "request",
             "require-and-verify",
-            "verify-if-given"
-            "require-any",
+            "verify-if-given",
+            "require-any"
           ],
           "dependencies": [
             {
