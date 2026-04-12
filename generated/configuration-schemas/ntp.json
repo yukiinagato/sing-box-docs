@@ -1,0 +1,39 @@
+{
+  "module": "ntp",
+  "source": "configuration/ntp",
+  "page_count": 1,
+  "pages": [
+    {
+      "page_id": "ntp",
+      "source_path": "configuration/ntp/index.html",
+      "title": "NTP",
+      "fields": {
+        "enabled": {
+          "type": "boolean",
+          "required": false,
+          "description": "Enable NTP service."
+        },
+        "server": {
+          "type": "string",
+          "required": true,
+          "description": "Required NTP server address."
+        },
+        "server_port": {
+          "type": "integer",
+          "required": false,
+          "description": "NTP server port."
+        },
+        "interval": {
+          "type": "integer",
+          "required": false,
+          "description": "Time synchronization interval."
+        }
+      },
+      "section_titles": [
+        "Structure",
+        "Fields",
+        "Dial Fields"
+      ]
+    }
+  ]
+}
