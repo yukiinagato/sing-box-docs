@@ -18,6 +18,10 @@
   - 可拖拽排序。
   - 可單獨啟用/停用。
   - 可刪除單個 Block。
+- **向導式場景**
+  - **E 透明代理網關**：TUN/TProxy 一鍵模板，默認啟用 sniff、auto_route、platform_interface、DNS 防回環檢查。
+  - **F 進階策略分流**：流媒體 / 廣告 / AI 分流規則快速生成，內建 selector + url-test 與 Geo 資源提示位。
+  - **G 混合入站中心**：SOCKS/HTTP/Mixed/DNS 同時啟用，帶端口衝突檢測與 inbound 精準導向。
 - **智慧預設值**
   - 依 `string / integer / boolean / array / object` 自動填充初值。
 - **即時合併引擎**
@@ -36,6 +40,7 @@
   - 重置全部塊。
 - **JSON 即時預覽**
   - 右欄同步渲染語法高亮 JSON。
+  - 右欄增加「規則摘要」，可視化輸出當前分流策略。
 
 ## 本地啟動
 

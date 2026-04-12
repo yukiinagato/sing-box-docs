@@ -51,6 +51,23 @@
       letter-spacing: .01em;
     }
     .panel-content { padding: 12px; overflow: auto; }
+    .wizard-box {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px;
+      margin-bottom: 12px;
+      background: #111a30;
+    }
+    .wizard-box h3 { margin: 0 0 8px; font-size: 13px; }
+    .wizard-grid { display: grid; gap: 8px; }
+    .wizard-summary {
+      border-top: 1px solid var(--border);
+      padding: 10px 12px;
+      font-size: 12px;
+      color: #b8d4ff;
+      background: #101a2e;
+      white-space: pre-wrap;
+    }
     .module-group { margin-bottom: 12px; }
     .module-group h3 {
       margin: 0 0 8px;
@@ -153,7 +170,10 @@
   <div class="layout">
     <aside class="panel" id="library-panel">
       <h2>Schema 資源庫</h2>
-      <div class="panel-content" id="library"></div>
+      <div class="panel-content">
+        <div id="wizard"></div>
+        <div id="library"></div>
+      </div>
     </aside>
 
     <section class="panel">
@@ -181,6 +201,7 @@
           <button class="btn primary" id="download-btn">下載 config.json</button>
         </div>
       </div>
+      <div class="wizard-summary" id="rule-summary">規則摘要：尚未配置向導場景。</div>
       <pre class="preview" id="preview"></pre>
     </aside>
   </div>
@@ -190,6 +211,10 @@ const state = {
   schemas: new Map(),
   blocks: [],
   errors: [],
+  wizard: {
+    scenario: 'none',
+    data: {},
+  },
 };
 
 const ARRAY_BUCKETS = {
@@ -206,10 +231,12 @@ const KNOWN_SCHEMA_FILES = [
 ];
 
 const els = {
+  wizard: document.getElementById('wizard'),
   library: document.getElementById('library'),
   blocks: document.getElementById('blocks'),
   preview: document.getElementById('preview'),
   errors: document.getElementById('errors'),
+  summary: document.getElementById('rule-summary'),
   reset: document.getElementById('reset-btn'),
   copy: document.getElementById('copy-btn'),
   download: document.getElementById('download-btn'),
@@ -220,10 +247,97 @@ await bootstrap();
 async function bootstrap() {
   const schemaFiles = await discoverSchemaFiles();
   await Promise.all(schemaFiles.map(loadSchema));
+  renderWizard();
   renderLibrary();
   renderWorkspace();
   rerenderOutput();
   bindGlobalActions();
+}
+
+function renderWizard() {
+  els.wizard.innerHTML = `
+    <section class="wizard-box">
+      <h3>向導式場景</h3>
+      <div class="wizard-grid">
+        <label class="field">
+          <span>場景</span>
+          <select id="wiz-scenario">
+            <option value="none">僅使用 Block</option>
+            <option value="transparent">E: 透明代理網關</option>
+            <option value="split">F: 進階策略分流</option>
+            <option value="hub">G: 混合入站中心</option>
+          </select>
+        </label>
+        <div id="wiz-fields"></div>
+        <button class="btn primary" id="wiz-apply">套用向導場景</button>
+      </div>
+    </section>
+  `;
+  const scenarioSel = document.getElementById('wiz-scenario');
+  scenarioSel.value = state.wizard.scenario;
+  scenarioSel.onchange = () => {
+    state.wizard.scenario = scenarioSel.value;
+    renderWizardFields();
+  };
+  document.getElementById('wiz-apply').onclick = () => {
+    state.wizard.data = collectWizardData();
+    rerenderOutput();
+  };
+  renderWizardFields();
+}
+
+function renderWizardFields() {
+  const wrap = document.getElementById('wiz-fields');
+  if (!wrap) return;
+  const s = state.wizard.scenario;
+  if (s === 'transparent') {
+    wrap.innerHTML = `
+      <label class="field"><span>透明入站</span><select data-w="mode"><option value="tun">TUN</option><option value="tproxy">TProxy</option></select></label>
+      <label class="field"><span>代理出口標籤</span><input data-w="proxyTag" value="proxy-out"></label>
+      <label class="field"><span>透明代理端口</span><input data-w="port" type="number" value="7893"></label>
+      <label class="field"><span><input data-w="sniff" type="checkbox" checked> 啟用 sniffing</span></label>
+      <label class="field"><span><input data-w="dnsHijack" type="checkbox" checked> 啟用 DNS Hijack</span></label>
+    `;
+  } else if (s === 'split') {
+    wrap.innerHTML = `
+      <label class="field"><span>流媒體域名</span><input data-w="mediaDomains" value="youtube.com,netflix.com"></label>
+      <label class="field"><span>AI 域名</span><input data-w="aiDomains" value="openai.com,anthropic.com"></label>
+      <label class="field"><span>廣告域名</span><input data-w="adDomains" value="doubleclick.net,adservice.google.com"></label>
+      <label class="field"><span>主節點協議</span><select data-w="mainProtocol"><option value="shadowsocks">Shadowsocks</option><option value="hysteria2">Hysteria2</option></select></label>
+      <label class="field dyn-hy2" hidden><span>up_mbps</span><input data-w="upMbps" type="number" value="100"></label>
+      <label class="field dyn-hy2" hidden><span>down_mbps</span><input data-w="downMbps" type="number" value="100"></label>
+      <label class="field dyn-hy2" hidden><span>obfs</span><input data-w="obfs" value="salamander"></label>
+    `;
+    const protocolSel = wrap.querySelector('[data-w=\"mainProtocol\"]');
+    const toggleHy2 = () => {
+      const show = protocolSel.value === 'hysteria2';
+      wrap.querySelectorAll('.dyn-hy2').forEach(el => { el.hidden = !show; });
+    };
+    protocolSel.onchange = toggleHy2;
+    toggleHy2();
+  } else if (s === 'hub') {
+    wrap.innerHTML = `
+      <label class="field"><span>SOCKS 端口</span><input data-w="socksPort" type="number" value="1080"></label>
+      <label class="field"><span>HTTP 端口</span><input data-w="httpPort" type="number" value="8080"></label>
+      <label class="field"><span>Mixed 端口</span><input data-w="mixedPort" type="number" value="2080"></label>
+      <label class="field"><span>DNS 端口</span><input data-w="dnsPort" type="number" value="5353"></label>
+    `;
+  } else {
+    wrap.innerHTML = '<div class="meta">選擇場景後可生成 1.14 兼容模板。</div>';
+  }
+}
+
+function collectWizardData() {
+  const wrap = document.getElementById('wiz-fields');
+  if (!wrap) return {};
+  const data = {};
+  wrap.querySelectorAll('[data-w]').forEach((el) => {
+    const key = el.getAttribute('data-w');
+    if (el.type === 'checkbox') data[key] = el.checked;
+    else if (el.type === 'number') data[key] = Number(el.value || 0);
+    else data[key] = el.value;
+  });
+  return data;
 }
 
 async function discoverSchemaFiles() {
@@ -543,6 +657,132 @@ function migrateLegacy14(result, errors) {
   if (!Array.isArray(result.route.rules)) result.route.rules = [];
 }
 
+function buildWizardConfig() {
+  const s = state.wizard.scenario;
+  const d = state.wizard.data || {};
+  if (s === 'transparent') {
+    const isTun = (d.mode || 'tun') === 'tun';
+    const proxyTag = d.proxyTag || 'proxy-out';
+    const inbound = isTun
+      ? {
+          type: 'tun',
+          tag: 'tun-in',
+          mtu: 9000,
+          auto_route: true,
+          platform: { http_proxy: { enabled: false } },
+          platform_interface: true,
+          sniff: d.sniff !== false,
+        }
+      : {
+          type: 'tproxy',
+          tag: 'tproxy-in',
+          listen: '0.0.0.0',
+          listen_port: d.port || 7893,
+          sniff: d.sniff !== false,
+        };
+    return {
+      inbounds: [inbound],
+      outbounds: [{ type: 'direct', tag: 'direct' }, { type: 'dns', tag: 'dns-out' }, { type: 'selector', tag: proxyTag, outbounds: ['direct'] }],
+      dns: {
+        servers: [{ type: 'local', tag: 'dns-local', detour: 'direct' }],
+        rules: d.dnsHijack !== false ? [{ protocol: 'dns', server: 'dns-local' }] : [],
+      },
+      route: {
+        rules: [
+          { ip_cidr: ['10.0.0.0/8', '172.16.0.0/12', '192.168.0.0/16'], outbound: 'direct' },
+          { protocol: 'dns', outbound: 'dns-out' },
+        ],
+        final: proxyTag,
+      },
+    };
+  }
+  if (s === 'split') {
+    const mediaDomains = String(d.mediaDomains || '').split(',').map(v => v.trim()).filter(Boolean);
+    const aiDomains = String(d.aiDomains || '').split(',').map(v => v.trim()).filter(Boolean);
+    const adDomains = String(d.adDomains || '').split(',').map(v => v.trim()).filter(Boolean);
+    const hy2 = d.mainProtocol === 'hysteria2';
+    return {
+      outbounds: [
+        { type: 'selector', tag: 'main-selector', outbounds: ['streaming-out', 'ai-out', 'direct'] },
+        { type: 'urltest', tag: 'main-auto', outbounds: ['streaming-out', 'ai-out'], url: 'https://cp.cloudflare.com/generate_204' },
+        { type: hy2 ? 'hysteria2' : 'shadowsocks', tag: 'streaming-out', up_mbps: d.upMbps || 100, down_mbps: d.downMbps || 100, obfs: d.obfs || 'salamander' },
+        { type: 'shadowsocks', tag: 'ai-out' },
+        { type: 'block', tag: 'ad-block' },
+        { type: 'direct', tag: 'direct' },
+      ],
+      route: {
+        geoip: { path: 'geoip.db' },
+        geosite: { path: 'geosite.db' },
+        rules: [
+          { domain_suffix: adDomains, outbound: 'ad-block' },
+          { domain_suffix: mediaDomains, outbound: 'streaming-out' },
+          { domain_suffix: aiDomains, outbound: 'ai-out' },
+          { geosite: ['cn'], outbound: 'direct' },
+        ],
+        final: 'main-selector',
+      },
+    };
+  }
+  if (s === 'hub') {
+    return {
+      inbounds: [
+        { type: 'socks', tag: 'socks-in', listen: '127.0.0.1', listen_port: d.socksPort || 1080 },
+        { type: 'http', tag: 'http-in', listen: '127.0.0.1', listen_port: d.httpPort || 8080 },
+        { type: 'mixed', tag: 'mixed-in', listen: '127.0.0.1', listen_port: d.mixedPort || 2080 },
+        { type: 'dns', tag: 'dns-in', listen: '127.0.0.1', listen_port: d.dnsPort || 5353 },
+      ],
+      outbounds: [{ type: 'direct', tag: 'direct' }, { type: 'block', tag: 'block' }],
+      route: {
+        rules: [
+          { inbound: ['dns-in'], outbound: 'direct' },
+          { inbound: ['socks-in', 'http-in', 'mixed-in'], outbound: 'direct' },
+        ],
+      },
+    };
+  }
+  return {};
+}
+
+function applyWizard(result, errors) {
+  const wizardConfig = buildWizardConfig();
+  if (!wizardConfig || Object.keys(wizardConfig).length === 0) return;
+  for (const [key, value] of Object.entries(wizardConfig)) {
+    if (Array.isArray(value)) {
+      if (!Array.isArray(result[key])) result[key] = [];
+      result[key].push(...value);
+    } else if (value && typeof value === 'object') {
+      if (!result[key] || typeof result[key] !== 'object' || Array.isArray(result[key])) result[key] = {};
+      Object.assign(result[key], value);
+    } else {
+      result[key] = value;
+    }
+  }
+
+  if (state.wizard.scenario === 'hub') {
+    const ports = (result.inbounds || []).map(i => i.listen_port).filter(Boolean);
+    const dup = ports.find((p, i) => ports.indexOf(p) !== i);
+    if (dup) errors.push(`端口衝突：inbounds.listen_port ${dup} 重複`);
+  }
+  if (state.wizard.scenario === 'transparent') {
+    const dnsServers = result.dns?.servers || [];
+    const hasSafeDetour = dnsServers.some(s => s?.detour === 'direct' || s?.detour === 'dns-out');
+    if (!hasSafeDetour) errors.push('DNS 出站必須配置 detour 或 direct，防止 DNS 解析請求死循環。');
+  }
+}
+
+function summarizeRules(result) {
+  const rules = result.route?.rules || [];
+  const items = [];
+  if (rules.some(r => Array.isArray(r.geosite) && r.geosite.includes('cn'))) items.push('中國流量直連');
+  const yt = rules.find(r => (r.domain_suffix || []).some(d => d.includes('youtube')));
+  if (yt?.outbound) items.push(`YouTube 走 ${yt.outbound}`);
+  const ad = rules.find(r => (r.domain_suffix || []).some(d => d.includes('ad')));
+  if (ad?.outbound) items.push(`廣告流量走 ${ad.outbound}`);
+  const ai = rules.find(r => (r.domain_suffix || []).some(d => d.includes('openai') || d.includes('anthropic')));
+  if (ai?.outbound) items.push(`AI 流量走 ${ai.outbound}`);
+  return items.length ? `規則摘要：${items.join('，')}` : '規則摘要：已生成配置，但未匹配到可摘要的分流規則。';
+}
+
 function buildMergedConfig() {
   const result = {
     log: {},
@@ -589,6 +829,7 @@ function buildMergedConfig() {
   for (const key of Object.keys(result)) {
     if (Array.isArray(result[key]) && result[key].length === 0) delete result[key];
   }
+  applyWizard(result, errors);
   migrateLegacy14(result, errors);
 
   return { result, errors };
@@ -597,6 +838,7 @@ function buildMergedConfig() {
 function rerenderOutput() {
   const { result, errors } = buildMergedConfig();
   els.preview.innerHTML = highlightJson(safeStringify(result, 2));
+  els.summary.textContent = summarizeRules(result);
   els.errors.hidden = errors.length === 0;
   els.errors.textContent = errors.length ? errors.join('\n') : '';
 
