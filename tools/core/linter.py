@@ -27,9 +27,11 @@ SHARED_OBJECT_ROOT_KEYS = {
     "tls",
     "transport",
     "v2ray_transport",
+    "mux",
     "multiplex",
     "tcp_brutal",
     "udp_over_tcp",
+    "multipath",
 }
 
 TLS_SUB_FIELDS = {
@@ -72,7 +74,7 @@ class ProjectLinter:
         "services",
         "experimental",
     }
-    ROOT_SHARED_KEYS = ("tls", "transport", "multiplex", "multipath")
+    ROOT_SHARED_KEYS = ("tls", "transport", "v2ray_transport", "multiplex", "multipath", "mux")
 
     def lint(self, config: dict[str, Any]) -> LintResult:
         normalized = copy.deepcopy(config)
@@ -103,28 +105,15 @@ class ProjectLinter:
                 self._strip_non_native_fields(item, warnings, f"{path}[{idx}]")
 
     def _repair_root_scope_pollution(self, config: dict[str, Any], warnings: list[str]) -> None:
-        inbounds = config.get("inbounds") if isinstance(config.get("inbounds"), list) else []
-        outbounds = config.get("outbounds") if isinstance(config.get("outbounds"), list) else []
-
         for key in list(config.keys()):
             if key in ALLOWED_ROOT_KEYS:
                 continue
 
-            value = config.get(key)
             if key in SHARED_OBJECT_ROOT_KEYS:
-                target_type = self._pick_target_type_for_shared_key(key, value, inbounds, outbounds)
-                target_node = self._pick_target_node(target_type, inbounds, outbounds)
-                if target_node is not None:
-                    normalized_key = "transport" if key in {"transport", "v2ray_transport"} else key
-                    target_node[normalized_key] = value
-                    warnings.append(
-                        f"moved illegal root field '{key}' into {target_type}[0].{normalized_key}"
-                    )
-                    config.pop(key, None)
-                    continue
+                # Shared fields are migrated in _migrate_root_shared_fields.
+                continue
 
-            warnings.append(f"illegal root field '{key}' detected at $.{key}; removed")
-            config.pop(key, None)
+            warnings.append(f"illegal root field '{key}' detected at $.{key}; scheduled for removal")
 
     def _repair_shared_child_scopes(self, config: dict[str, Any], warnings: list[str]) -> None:
         for idx, node in enumerate(config.get("inbounds", [])):
@@ -146,29 +135,6 @@ class ProjectLinter:
                 node["tls"] = tls
             tls.update(moved)
             warnings.append(f"moved misplaced TLS fields under {path}.tls")
-
-    def _pick_target_type_for_shared_key(
-        self,
-        key: str,
-        value: Any,
-        inbounds: list[Any],
-        outbounds: list[Any],
-    ) -> str:
-        if key == "multiplex":
-            return "outbound" if outbounds else "inbound"
-        if key == "udp_over_tcp":
-            return "inbound" if inbounds else "outbound"
-        if isinstance(value, dict):
-            if any(k in value for k in {"listen", "listen_port", "users", "sniff"}):
-                return "inbound" if inbounds else "outbound"
-            if any(k in value for k in {"server", "server_port", "uuid", "password"}):
-                return "outbound" if outbounds else "inbound"
-        return "outbound" if outbounds else "inbound"
-
-    def _pick_target_node(self, target_type: str, inbounds: list[Any], outbounds: list[Any]) -> dict[str, Any] | None:
-        if target_type == "inbound":
-            return inbounds[0] if inbounds and isinstance(inbounds[0], dict) else None
-        return outbounds[0] if outbounds and isinstance(outbounds[0], dict) else None
 
     def _normalize_dns_route_shapes(self, config: dict[str, Any], warnings: list[str]) -> None:
         dns = config.get("dns")
@@ -203,6 +169,7 @@ class ProjectLinter:
             if key not in config:
                 continue
             value = config.pop(key)
+            normalized_key = "transport" if key == "v2ray_transport" else ("multiplex" if key == "mux" else key)
             migrated = 0
             for section in ("inbounds", "outbounds"):
                 nodes = config.get(section)
@@ -211,15 +178,18 @@ class ProjectLinter:
                 for node in nodes:
                     if not isinstance(node, dict):
                         continue
-                    if key in node:
+                    if normalized_key in node:
                         continue
-                    node[key] = copy.deepcopy(value)
+                    node[normalized_key] = copy.deepcopy(value)
                     migrated += 1
             if migrated > 0:
-                warnings.append(f"migrated root {key} into {migrated} inbound/outbound node(s)")
+                warnings.append(
+                    f"moved illegal root field '{key}' into {migrated} inbound/outbound node(s) as {normalized_key}"
+                )
+                warnings.append(f"migrated root {normalized_key} into {migrated} inbound/outbound node(s)")
             else:
                 warnings.append(f"detected illegal root field {key}, but no inbound/outbound target found")
-                config[key] = value
+                config[normalized_key] = value
 
     def _enforce_root_whitelist(self, config: dict[str, Any], warnings: list[str]) -> None:
         for key in list(config.keys()):
@@ -231,7 +201,7 @@ class ProjectLinter:
             )
 
     def _validate_shared_field_scopes(self, config: dict[str, Any], warnings: list[str]) -> None:
-        shared_keys = set(self.ROOT_SHARED_KEYS)
+        shared_keys = {"tls", "transport", "multiplex", "multipath"}
         for section in ("inbounds", "outbounds", "endpoints"):
             nodes = config.get(section)
             if not isinstance(nodes, list):
@@ -239,7 +209,7 @@ class ProjectLinter:
             for idx, node in enumerate(nodes):
                 if not isinstance(node, dict):
                     continue
-                self._warn_shared_scope_in_nested(node, shared_keys, warnings, f"$.{section}[{idx}]")
+                self._warn_shared_scope_in_nested(node, shared_keys, warnings, f"$.{section}[{idx}]", is_owner=True)
 
     def _warn_shared_scope_in_nested(
         self,
@@ -247,16 +217,24 @@ class ProjectLinter:
         shared_keys: set[str],
         warnings: list[str],
         path: str,
+        *,
+        is_owner: bool = False,
     ) -> None:
         if isinstance(node, dict):
             for key, value in node.items():
-                if key in shared_keys and path.count(".") > 1:
-                    warnings.append(f"shared field {key} should be under inbound/outbound/endpoint object, got {path}.{key}")
-                self._warn_shared_scope_in_nested(value, shared_keys, warnings, f"{path}.{key}")
+                if key in {"mux", "v2ray_transport"}:
+                    warnings.append(f"legacy shared key {path}.{key} detected; use multiplex/transport")
+                    continue
+                if key in shared_keys and not is_owner:
+                    raise ValueError(
+                        f"shared field '{key}' is at wrong level: {path}.{key}; "
+                        "expected under $.inbounds[i]/$.outbounds[i]/$.endpoints[i]"
+                    )
+                self._warn_shared_scope_in_nested(value, shared_keys, warnings, f"{path}.{key}", is_owner=False)
             return
         if isinstance(node, list):
             for idx, item in enumerate(node):
-                self._warn_shared_scope_in_nested(item, shared_keys, warnings, f"{path}[{idx}]")
+                self._warn_shared_scope_in_nested(item, shared_keys, warnings, f"{path}[{idx}]", is_owner=False)
 
     def _validate_one_shadowsocks_node(self, node: Any, node_type: str) -> None:
         if not isinstance(node, dict) or node.get("type") != "shadowsocks":
