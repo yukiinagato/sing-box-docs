@@ -58,6 +58,32 @@
       margin-bottom: 12px;
       background: #111a30;
     }
+    .step-progress {
+      display: grid;
+      grid-template-columns: repeat(11, minmax(0, 1fr));
+      gap: 6px;
+      margin-bottom: 10px;
+    }
+    .step-pill {
+      border: 1px solid var(--border);
+      background: #172447;
+      border-radius: 8px;
+      font-size: 11px;
+      line-height: 1.2;
+      padding: 6px 4px;
+      text-align: center;
+      color: #b8c7e8;
+    }
+    .step-pill.active {
+      border-color: var(--accent);
+      color: #e8f1ff;
+      background: #21448a;
+    }
+    .step-pill.done {
+      border-color: color-mix(in srgb, var(--ok) 45%, var(--border));
+      background: #173728;
+      color: #cbf7de;
+    }
     .wizard-box h3 { margin: 0 0 8px; font-size: 13px; }
     .wizard-grid { display: grid; gap: 8px; }
     .wizard-summary {
@@ -69,6 +95,11 @@
       white-space: pre-wrap;
     }
     .module-group { margin-bottom: 12px; }
+    .module-group .module-note {
+      color: var(--muted);
+      font-size: 11px;
+      margin-bottom: 6px;
+    }
     .module-group h3 {
       margin: 0 0 8px;
       font-size: 12px;
@@ -101,6 +132,15 @@
       display: flex;
       gap: 8px;
       flex-wrap: wrap;
+    }
+    .step-nav {
+      border-top: 1px solid var(--border);
+      padding: 10px 12px;
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      align-items: center;
+      background: #101a2e;
     }
     .btn {
       width: auto;
@@ -338,15 +378,21 @@
     <section class="panel">
       <div class="workspace-header">
         <div>
-          <strong>Block 工作區</strong>
-          <div class="meta">新增、拖拽排序、啟用 / 停用模塊</div>
+          <strong id="step-title">Block 工作區</strong>
+          <div class="meta" id="step-desc">新增、拖拽排序、啟用 / 停用模塊</div>
         </div>
         <div class="actions">
+          <button class="btn" id="template-btn">添加常見模板</button>
           <button class="btn" id="import-btn">導入 JSON</button>
           <button class="btn danger" id="reset-btn">重置全部塊</button>
         </div>
       </div>
       <div class="blocks" id="blocks"></div>
+      <div class="step-nav">
+        <button class="btn" id="step-prev-btn">← 上一步</button>
+        <div class="meta" id="step-meta">Step 1 / 11</div>
+        <button class="btn primary" id="step-next-btn">下一步 →</button>
+      </div>
       <div class="error-panel" id="errors" hidden></div>
     </section>
 
@@ -383,10 +429,41 @@ const state = {
   blocksData: [],
   errors: [],
   sharedDefs: {},
+  tagRegistry: {
+    inbound: new Set(),
+    outbound: new Set(),
+    endpoint: new Set(),
+    dnsServer: new Set(),
+    certificate: new Set(),
+    general: new Set(),
+  },
   exportDiffOnly: false,
   wizard: {
-    scenario: 'none',
-    data: {},
+    currentStep: 1,
+    stepData: {},
+  },
+};
+
+const WIZARD_STEPS = [
+  { id: 1, key: 'log', title: 'Step 1: log', desc: '基礎日志', modules: ['log'], jsonPath: 'log' },
+  { id: 2, key: 'ntp', title: 'Step 2: ntp', desc: '時間同步', modules: ['ntp'], jsonPath: 'ntp' },
+  { id: 3, key: 'certificate', title: 'Step 3: certificate', desc: '證書與證書提供器', modules: ['certificate'], jsonPath: 'certificate' },
+  { id: 4, key: 'endpoints', title: 'Step 4: endpoints', desc: '端點定義', modules: ['endpoint'], jsonPath: 'endpoints' },
+  { id: 5, key: 'inbounds', title: 'Step 5: inbounds', desc: '流量入口', modules: ['inbound'], jsonPath: 'inbounds' },
+  { id: 6, key: 'outbounds', title: 'Step 6: outbounds', desc: '流量出口 / detour', modules: ['outbound', 'shared'], jsonPath: 'outbounds' },
+  { id: 7, key: 'dns', title: 'Step 7: dns', desc: '解析服務與規則', modules: ['dns'], jsonPath: 'dns' },
+  { id: 8, key: 'route', title: 'Step 8: route', desc: '分流路由', modules: ['route', 'rule-set'], jsonPath: 'route' },
+  { id: 9, key: 'services', title: 'Step 9: services', desc: '系統服務', modules: ['service'], jsonPath: 'services' },
+  { id: 10, key: 'experimental', title: 'Step 10: experimental', desc: '實驗功能', modules: ['experimental'], jsonPath: 'experimental' },
+  { id: 11, key: 'review', title: 'Step 11: 預覽與終審', desc: 'ProjectLinter + sing-box check', modules: [], jsonPath: '' },
+];
+
+const STEP_TEMPLATE_BUILDERS = {
+  outbounds() {
+    return [
+      { module: 'outbound', page: 'vless', payload: { type: 'vless', tag: 'vless-reality', server: 'example.com', server_port: 443, uuid: '', tls: { enabled: true, reality: { enabled: true, public_key: '', short_id: '' } } } },
+      { module: 'outbound', page: 'shadowsocks', payload: { type: 'shadowsocks', tag: 'ss-template', server: 'example.com', server_port: 8388, method: 'aes-256-gcm', password: '' } },
+    ];
   },
 };
 
@@ -474,6 +551,12 @@ const els = {
   preview: document.getElementById('preview'),
   errors: document.getElementById('errors'),
   summary: document.getElementById('rule-summary'),
+  stepTitle: document.getElementById('step-title'),
+  stepDesc: document.getElementById('step-desc'),
+  stepMeta: document.getElementById('step-meta'),
+  stepPrev: document.getElementById('step-prev-btn'),
+  stepNext: document.getElementById('step-next-btn'),
+  templateBtn: document.getElementById('template-btn'),
   reset: document.getElementById('reset-btn'),
   importBtn: document.getElementById('import-btn'),
   copy: document.getElementById('copy-btn'),
@@ -524,94 +607,33 @@ async function loadSharedDefinitions() {
 }
 
 function renderWizard() {
+  const current = state.wizard.currentStep;
+  const pills = WIZARD_STEPS.map((step) => {
+    const cls = step.id === current ? 'step-pill active' : (step.id < current ? 'step-pill done' : 'step-pill');
+    return `<div class="${cls}">${step.id}. ${escapeHtml(step.key)}</div>`;
+  }).join('');
+  const step = WIZARD_STEPS[current - 1];
   els.wizard.innerHTML = `
     <section class="wizard-box">
-      <h3>向導式場景</h3>
-      <div class="wizard-grid">
-        <label class="field">
-          <span>場景</span>
-          <select id="wiz-scenario">
-            <option value="none">僅使用 Block</option>
-            <option value="transparent">E: 透明代理網關</option>
-            <option value="split">F: 進階策略分流</option>
-            <option value="hub">G: 混合入站中心</option>
-            <option value="landing">B: 落地服務端</option>
-          </select>
-        </label>
-        <div id="wiz-fields"></div>
-        <button class="btn primary" id="wiz-apply">套用向導場景</button>
-      </div>
+      <h3>11 步向導（低耦合 → 高耦合）</h3>
+      <div class="step-progress">${pills}</div>
+      <div class="meta">${escapeHtml(step.title)} · ${escapeHtml(step.desc)}</div>
     </section>
   `;
-  const scenarioSel = document.getElementById('wiz-scenario');
-  scenarioSel.value = state.wizard.scenario;
-  scenarioSel.onchange = () => {
-    state.wizard.scenario = scenarioSel.value;
-    renderWizardFields();
-  };
-  document.getElementById('wiz-apply').onclick = () => {
-    applyWizardScenario();
-  };
-  renderWizardFields();
+  els.stepTitle.textContent = step.title;
+  els.stepDesc.textContent = step.desc;
+  els.stepMeta.textContent = `Step ${current} / ${WIZARD_STEPS.length}`;
+  els.stepPrev.disabled = current === 1;
+  els.stepNext.disabled = current === WIZARD_STEPS.length;
+  els.templateBtn.hidden = !STEP_TEMPLATE_BUILDERS[step.key];
 }
 
 function renderWizardFields() {
-  const wrap = document.getElementById('wiz-fields');
-  if (!wrap) return;
-  const s = state.wizard.scenario;
-  if (s === 'transparent') {
-    wrap.innerHTML = `
-      <label class="field"><span>透明入站</span><select data-w="mode"><option value="tun">TUN</option><option value="tproxy">TProxy</option></select></label>
-      <label class="field"><span>代理出口標籤</span><input data-w="proxyTag" value="proxy-out"></label>
-      <label class="field"><span>透明代理端口</span><input data-w="port" type="number" value="7893"></label>
-      <label class="field"><span><input data-w="sniff" type="checkbox" checked> 啟用 sniffing</span></label>
-      <label class="field"><span><input data-w="dnsHijack" type="checkbox" checked> 啟用 DNS Hijack</span></label>
-    `;
-  } else if (s === 'split') {
-    wrap.innerHTML = `
-      <label class="field"><span>流媒體域名</span><input data-w="mediaDomains" value="youtube.com,netflix.com"></label>
-      <label class="field"><span>AI 域名</span><input data-w="aiDomains" value="openai.com,anthropic.com"></label>
-      <label class="field"><span>廣告域名</span><input data-w="adDomains" value="doubleclick.net,adservice.google.com"></label>
-      <label class="field"><span>主節點協議</span><select data-w="mainProtocol"><option value="shadowsocks">Shadowsocks</option><option value="hysteria2">Hysteria2</option></select></label>
-      <label class="field dyn-hy2" hidden><span>up_mbps</span><input data-w="upMbps" type="number" value="100"></label>
-      <label class="field dyn-hy2" hidden><span>down_mbps</span><input data-w="downMbps" type="number" value="100"></label>
-      <label class="field dyn-hy2" hidden><span>obfs</span><input data-w="obfs" value="salamander"></label>
-    `;
-    const protocolSel = wrap.querySelector('[data-w=\"mainProtocol\"]');
-    const toggleHy2 = () => {
-      const show = protocolSel.value === 'hysteria2';
-      wrap.querySelectorAll('.dyn-hy2').forEach(el => { el.hidden = !show; });
-    };
-    protocolSel.onchange = toggleHy2;
-    toggleHy2();
-  } else if (s === 'hub') {
-    wrap.innerHTML = `
-      <label class="field"><span>SOCKS 端口</span><input data-w="socksPort" type="number" value="1080"></label>
-      <label class="field"><span>HTTP 端口</span><input data-w="httpPort" type="number" value="8080"></label>
-      <label class="field"><span>Mixed 端口</span><input data-w="mixedPort" type="number" value="2080"></label>
-      <label class="field"><span>DNS 端口</span><input data-w="dnsPort" type="number" value="5353"></label>
-    `;
-  } else if (s === 'landing') {
-    wrap.innerHTML = `
-      <label class="field"><span>Shadowsocks 端口</span><input data-w="ssPort" type="number" value="8388"></label>
-      <label class="field"><span>服務監聽地址</span><input data-w="listen" value="0.0.0.0"></label>
-    `;
-  } else {
-    wrap.innerHTML = '<div class="meta">選擇場景後可生成 1.14 兼容模板。</div>';
-  }
+  return;
 }
 
 function collectWizardData() {
-  const wrap = document.getElementById('wiz-fields');
-  if (!wrap) return {};
-  const data = {};
-  wrap.querySelectorAll('[data-w]').forEach((el) => {
-    const key = el.getAttribute('data-w');
-    if (el.type === 'checkbox') data[key] = el.checked;
-    else if (el.type === 'number') data[key] = Number(el.value || 0);
-    else data[key] = el.value;
-  });
-  return data;
+  return { ...state.wizard.stepData };
 }
 
 async function discoverSchemaFiles() {
@@ -641,9 +663,16 @@ async function loadSchema(filename) {
 }
 
 function renderLibrary() {
+  const currentStep = WIZARD_STEPS[state.wizard.currentStep - 1];
+  const stepModules = new Set(currentStep.modules || []);
   const modules = [...state.schemas.values()]
     .filter((schema) => ROOT_ALLOWED_KEYS.has(resolveRootKeyByModule(schema.module)))
+    .filter((schema) => stepModules.size === 0 ? false : stepModules.has(schema.module))
     .sort((a, b) => a.module.localeCompare(b.module));
+  if (!modules.length && state.wizard.currentStep === WIZARD_STEPS.length) {
+    els.library.innerHTML = '<div class="empty">終審步驟無需新增 Block，請檢查右側預覽與校驗結果。</div>';
+    return;
+  }
   if (!modules.length) {
     els.library.innerHTML = '<div class="empty">找不到可用 Schema。</div>';
     return;
@@ -653,7 +682,7 @@ function renderLibrary() {
   for (const module of modules) {
     const group = document.createElement('div');
     group.className = 'module-group';
-    group.innerHTML = `<h3>${escapeHtml(module.module)}</h3>`;
+    group.innerHTML = `<h3>${escapeHtml(module.module)}</h3><div class="module-note">僅顯示當前步驟可用模塊</div>`;
 
     for (const page of module.pages) {
       const btn = document.createElement('button');
@@ -702,7 +731,13 @@ function createBlock(moduleName, page, preset = {}) {
     basePayload,
     role: classifyBlockRole(moduleName, page),
     parentId: moduleName === 'shared' ? findPreferredSharedParentId() : null,
+    stepId: inferStepIdForModule(moduleName),
   };
+}
+
+function inferStepIdForModule(moduleName) {
+  const exact = WIZARD_STEPS.find((step) => step.modules.includes(moduleName));
+  return exact?.id || state.wizard.currentStep;
 }
 
 function classifyBlockRole(moduleName, page) {
@@ -1230,11 +1265,20 @@ function renderField(block, fieldName, spec, depth = 0, breadcrumb = []) {
   const current = getNestedValue(block.values, fieldName);
   const type = spec?.type;
   const allowed = extractEnumValues(fieldName, spec);
+  const referenceOptions = getReferenceOptions(fieldName);
 
   let input;
-  if (allowed?.length) {
+  if (allowed?.length || shouldUseReferenceSelect(spec, fieldName)) {
     input = document.createElement('select');
-    for (const v of allowed) {
+    const options = allowed?.length ? allowed : referenceOptions;
+    const allowEmpty = !spec?.required;
+    if (allowEmpty) {
+      const empty = document.createElement('option');
+      empty.value = '';
+      empty.textContent = '-- 請選擇 --';
+      input.appendChild(empty);
+    }
+    for (const v of options) {
       const opt = document.createElement('option');
       opt.value = String(v);
       opt.textContent = String(v);
@@ -1267,6 +1311,21 @@ function renderField(block, fieldName, spec, depth = 0, breadcrumb = []) {
     input.className = 'tag-input-editor';
     input.placeholder = type === 'array_integer' ? '輸入數字，回車新增' : '輸入內容，回車新增';
     input.dataset.role = 'tag-editor';
+    if (type === 'array_string') {
+      const options = getReferenceOptions(fieldName);
+      if (options.length) {
+        const listId = `${block.id}-${fieldName.replaceAll('.', '-')}-refs`;
+        input.setAttribute('list', listId);
+        const datalist = document.createElement('datalist');
+        datalist.id = listId;
+        options.forEach((val) => {
+          const opt = document.createElement('option');
+          opt.value = val;
+          datalist.appendChild(opt);
+        });
+        wrap.appendChild(datalist);
+      }
+    }
     tagWrap.appendChild(input);
     wrap.appendChild(tagWrap);
   } else if (type === 'array_object') {
@@ -1432,11 +1491,17 @@ function renderArrayObjectItemField(block, fieldPath, itemIndex, key, value) {
   field.className = 'field';
   const spec = inferSpecFromValue(value);
   const allowed = extractEnumValues(key, spec);
+  const refs = getReferenceOptions(key);
   field.innerHTML = `<span>${escapeHtml(key)}</span>`;
   let input;
-  if (allowed?.length) {
+  if (allowed?.length || (spec.type === 'string' && refs.length)) {
     input = document.createElement('select');
-    allowed.forEach((v) => {
+    const options = allowed?.length ? allowed : refs;
+    const empty = document.createElement('option');
+    empty.value = '';
+    empty.textContent = '-- 請選擇 --';
+    input.appendChild(empty);
+    options.forEach((v) => {
       const opt = document.createElement('option');
       opt.value = String(v);
       opt.textContent = String(v);
@@ -1591,6 +1656,44 @@ function extractEnumValues(fieldName, spec) {
     if (constValues.length) return constValues;
   }
   return null;
+}
+
+function rebuildTagRegistry() {
+  const next = {
+    inbound: new Set(),
+    outbound: new Set(),
+    endpoint: new Set(),
+    dnsServer: new Set(),
+    certificate: new Set(),
+    general: new Set(),
+  };
+  state.blocksData.forEach((block) => {
+    const tag = getNestedValue(block.values, 'tag');
+    if (!tag || typeof tag !== 'string') return;
+    next.general.add(tag);
+    if (block.moduleName === 'inbound') next.inbound.add(tag);
+    if (block.moduleName === 'outbound') next.outbound.add(tag);
+    if (block.moduleName === 'endpoint') next.endpoint.add(tag);
+    if (block.moduleName === 'certificate') next.certificate.add(tag);
+    if (block.moduleName === 'dns' && block.role === 'dns_server') next.dnsServer.add(tag);
+  });
+  state.tagRegistry = next;
+}
+
+function getReferenceOptions(fieldName) {
+  const leaf = String(fieldName).split('.').at(-1) || '';
+  if (leaf === 'detour' || leaf === 'download_detour') return [...state.tagRegistry.outbound];
+  if (leaf === 'outbound') return [...state.tagRegistry.outbound];
+  if (leaf === 'inbound') return [...state.tagRegistry.inbound];
+  if (leaf === 'server') return [...state.tagRegistry.dnsServer];
+  if (leaf.includes('endpoint')) return [...state.tagRegistry.endpoint];
+  if (leaf.includes('certificate')) return [...state.tagRegistry.certificate];
+  return [];
+}
+
+function shouldUseReferenceSelect(spec, fieldName) {
+  if (!spec || spec.type !== 'string') return false;
+  return getReferenceOptions(fieldName).length > 0;
 }
 
 function validateShadowsocksKey(block, fieldName, value) {
@@ -2006,16 +2109,26 @@ function resolveRootKeyByModule(moduleName) {
 
 function rerenderOutput(options = {}) {
   const { refreshWorkspace = true, preserveFocus = false } = options;
+  rebuildTagRegistry();
   const { result, errors } = buildMergedConfig();
   const exportResult = applyExportMode(result);
   els.preview.innerHTML = highlightJson(safeStringify(exportResult, 2));
   els.summary.textContent = summarizeRules(exportResult);
   els.errors.hidden = errors.length === 0;
   els.errors.textContent = errors.length ? errors.join('\n') : '';
+  scrollPreviewToCurrentStep();
 
   if (refreshWorkspace) {
     renderWorkspacePreserveFocus(preserveFocus);
   }
+}
+
+function scrollPreviewToCurrentStep() {
+  const step = WIZARD_STEPS[state.wizard.currentStep - 1];
+  if (!step?.jsonPath) return;
+  const keys = [...els.preview.querySelectorAll('.tok-key')];
+  const target = keys.find((node) => node.textContent === `"${step.jsonPath}"`);
+  target?.scrollIntoView({ block: 'center', behavior: 'smooth' });
 }
 
 function captureFocusedField() {
@@ -2051,6 +2164,38 @@ function renderWorkspacePreserveFocus(shouldRestore) {
 }
 
 function bindGlobalActions() {
+  els.stepPrev.onclick = () => {
+    state.wizard.currentStep = Math.max(1, state.wizard.currentStep - 1);
+    renderWizard();
+    renderLibrary();
+    rerenderOutput({ refreshWorkspace: false });
+  };
+  els.stepNext.onclick = async () => {
+    const lintErrors = await runStepPrecheck();
+    if (lintErrors.length) {
+      els.errors.hidden = false;
+      els.errors.textContent = lintErrors.join('\n');
+      return;
+    }
+    state.wizard.currentStep = Math.min(WIZARD_STEPS.length, state.wizard.currentStep + 1);
+    renderWizard();
+    renderLibrary();
+    rerenderOutput({ refreshWorkspace: false });
+  };
+  els.templateBtn.onclick = () => {
+    const step = WIZARD_STEPS[state.wizard.currentStep - 1];
+    const builders = STEP_TEMPLATE_BUILDERS[step.key];
+    if (!builders) return;
+    const templates = builders();
+    templates.forEach((tpl) => {
+      const page = findBestPage(tpl.module, tpl.payload, tpl.page);
+      if (!page) return;
+      addBlockByPage(tpl.module, page, { ...tpl.payload, __title: `[模板] ${tpl.payload.type || page.page_id}` });
+    });
+    renderWorkspace();
+    rerenderOutput({ refreshWorkspace: false });
+  };
+
   els.diffOnlyToggle.onchange = () => {
     state.exportDiffOnly = els.diffOnlyToggle.checked;
     rerenderOutput({ refreshWorkspace: false });
@@ -2074,6 +2219,7 @@ function bindGlobalActions() {
   els.reset.onclick = () => {
     state.blocksData = [];
     state.errors = [];
+    state.tagRegistry = { inbound: new Set(), outbound: new Set(), endpoint: new Set(), dnsServer: new Set(), certificate: new Set(), general: new Set() };
     renderWorkspace();
     rerenderOutput();
   };
@@ -2095,6 +2241,63 @@ function bindGlobalActions() {
     a.click();
     URL.revokeObjectURL(url);
   };
+}
+
+function detectOutboundDetourCycle(config) {
+  const outbounds = Array.isArray(config?.outbounds) ? config.outbounds : [];
+  const edges = new Map();
+  outbounds.forEach((item) => {
+    if (!item?.tag || !item?.detour) return;
+    edges.set(item.tag, item.detour);
+  });
+  const visiting = new Set();
+  const visited = new Set();
+  const errors = [];
+  const dfs = (node) => {
+    if (visited.has(node) || !edges.has(node)) return;
+    if (visiting.has(node)) {
+      errors.push(`檢測到 detour 環路引用: ${node}`);
+      return;
+    }
+    visiting.add(node);
+    dfs(edges.get(node));
+    visiting.delete(node);
+    visited.add(node);
+  };
+  edges.forEach((_, node) => dfs(node));
+  return errors;
+}
+
+async function runStepPrecheck() {
+  const { result, errors } = buildMergedConfig();
+  const cycleErrors = detectOutboundDetourCycle(result);
+  const merged = [...errors, ...cycleErrors];
+  try {
+    const resp = await fetch('/tools/lint-config', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(result),
+    });
+    if (resp.ok) {
+      const payload = await resp.json();
+      if (Array.isArray(payload?.errors) && payload.errors.length) merged.push(...payload.errors);
+    }
+  } catch {
+    merged.push('後端 ProjectLinter 不可用：已使用前端預檢模式。');
+  }
+  if (state.wizard.currentStep === 11) {
+    try {
+      const resp = await fetch('/tools/validate-config', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(result),
+      });
+      if (!resp.ok) merged.push('sing-box check 驗證失敗或接口不可用。');
+    } catch {
+      merged.push('sing-box check 接口不可用：請在 CLI 執行 tools/run_singbox_validation.py。');
+    }
+  }
+  return merged;
 }
 
 async function normalizeImportedConfig(config) {
