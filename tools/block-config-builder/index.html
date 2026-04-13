@@ -849,13 +849,14 @@ function addBlock(type, initialData = {}) {
   return state.blocksData[state.blocksData.length - 1];
 }
 
-function findBestPage(moduleName, payload, preferredPageId = '') {
+function findBestPage(moduleName, payload, preferredPageId = '', strictPreferred = false) {
   const module = state.schemas.get(moduleName);
   const pages = module?.pages || [];
   if (!pages.length) return null;
   if (preferredPageId) {
     const direct = pages.find((p) => p.page_id === preferredPageId);
     if (direct) return direct;
+    if (strictPreferred) return null;
   }
   if (payload?.type) {
     const byType = pages.find((p) => p.page_id === payload.type);
@@ -875,9 +876,9 @@ function findBestPage(moduleName, payload, preferredPageId = '') {
   return bestPage;
 }
 
-function pushBlockFromPayload(moduleName, payload, preferredPageId = '', titleFallback = '') {
+function pushBlockFromPayload(moduleName, payload, preferredPageId = '', titleFallback = '', strictPreferred = false) {
   if (!payload || typeof payload !== 'object') return;
-  const page = findBestPage(moduleName, payload, preferredPageId);
+  const page = findBestPage(moduleName, payload, preferredPageId, strictPreferred);
   if (!page) return;
   const title = titleFallback || page.title || page.page_id;
   addBlockByPage(moduleName, page, { ...payload, __title: title });
@@ -915,15 +916,15 @@ function syncUIFromCurrentConfig(config) {
     pushSharedBlocksFromParent(outbound, 'outbound');
   });
   dnsServers.forEach((server) => {
-    pushBlockFromPayload('dns', server, server?.type || 'server', 'DNS Server');
+    pushBlockFromPayload('dns', server, server?.type || 'server', 'DNS Server', true);
   });
   dnsRules.forEach((rule) => {
     const preferred = rule?.action ? 'rule_action' : 'rule';
-    pushBlockFromPayload('dns', rule, preferred, 'DNS Rule');
+    pushBlockFromPayload('dns', rule, preferred, 'DNS Rule', true);
   });
   routeRules.forEach((rule) => {
     const preferred = rule?.action ? 'rule_action' : 'rule';
-    pushBlockFromPayload('route', rule, preferred, 'Routing Rule');
+    pushBlockFromPayload('route', rule, preferred, 'Routing Rule', true);
   });
   endpoints.forEach((endpoint) => {
     pushBlockFromPayload('endpoint', endpoint, endpoint?.type || '');
@@ -1080,13 +1081,28 @@ function bindDragHandlers(card) {
 }
 
 function bindWorkspaceDelegation() {
+  const normalizeAtomicArrayValue = (value, fieldType) => {
+    if (fieldType === 'array_string') {
+      if (Array.isArray(value)) return value.map((item) => String(item));
+      if (value === '' || value === null || value === undefined) return [];
+      return [String(value)];
+    }
+    if (fieldType === 'array_integer') {
+      if (Array.isArray(value)) return value.map((item) => Number(item)).filter((item) => Number.isFinite(item));
+      const next = Number(value);
+      return Number.isFinite(next) ? [next] : [];
+    }
+    return value;
+  };
+
   const handleFieldMutation = (target) => {
     const blockId = target.dataset.blockId;
     const fieldPath = target.dataset.fieldPath;
     if (!blockId || !fieldPath) return;
     const block = state.blocksData.find((item) => item.id === blockId);
     if (!block) return;
-    setNestedValue(block.values, fieldPath, readInputValue(target, target.dataset.fieldType));
+    const raw = readInputValue(target, target.dataset.fieldType);
+    setNestedValue(block.values, fieldPath, normalizeAtomicArrayValue(raw, target.dataset.fieldType));
     rerenderOutput({ refreshWorkspace: false });
   };
 
@@ -1141,7 +1157,8 @@ function bindWorkspaceDelegation() {
       if (!currentBlock || !Array.isArray(list) || Number.isNaN(itemIndex) || !itemKey) return;
       const next = [...list];
       const nextItem = next[itemIndex] && typeof next[itemIndex] === 'object' ? { ...next[itemIndex] } : {};
-      nextItem[itemKey] = parseArrayObjectFieldValue(target.dataset.fieldType, target);
+      const raw = parseArrayObjectFieldValue(target.dataset.fieldType, target);
+      nextItem[itemKey] = normalizeAtomicArrayValue(raw, target.dataset.fieldType);
       next[itemIndex] = nextItem;
       setNestedValue(currentBlock.values, fieldPath, next);
       rerenderOutput({ refreshWorkspace: true, preserveFocus: true });
@@ -1891,6 +1908,7 @@ function buildMergedConfig() {
 
     for (const [name, spec] of Object.entries(block.fields)) {
       const value = getNestedValue(block.values, name);
+      if (!shouldRenderField(block, name)) continue;
       const fieldErrors = validateField(block, name, value, spec);
       const keyErrors = validateShadowsocksKey(block, name, value);
       const allErrors = [...fieldErrors, ...keyErrors];
