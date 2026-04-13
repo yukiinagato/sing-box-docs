@@ -84,3 +84,37 @@ npx serve .
 - 若某些 schema JSON 格式有誤（例如無法被 `JSON.parse`），工具會在錯誤面板顯示載入失敗資訊，但不影響其他 schema 的使用。
 - 後端與測試共用 `tools/core/linter.py::ProjectLinter`，用於保存前最後一層邏輯審查（去除 `__page_id` 等污染欄位、修復 DNS/Route 結構、校驗 2022 密鑰）。
 - UI 與 Python linter 共享 `tools/core/schema_shared.json` 內的根級白名單與枚舉選項，避免雙端定義漂移。
+
+
+## Codex 无头浏览器调试（推荐）
+
+为了在 Codex / CI 这类无桌面环境里调试前端，仓库提供了：
+
+- `tools/block-config-builder/headless_debug.py`
+  - 自动在仓库根目录启动本地 HTTP server。
+  - 使用 Playwright Chromium 以无头模式打开 `index.html`。
+  - 收集 `console.error` 与 `pageerror`，并返回非 0 退出码。
+  - 默认输出截图到 `artifacts/block-config-builder-headless.png`。
+
+### 一次性安装依赖
+
+```bash
+python -m pip install playwright
+python -m playwright install chromium
+```
+
+### 运行调试
+
+```bash
+python tools/block-config-builder/headless_debug.py
+```
+
+常用参数：
+
+- `--port 8765`：本地调试端口。
+- `--wait-ms 5000`：页面载入后额外等待毫秒数。
+- `--screenshot artifacts/custom.png`：自定义截图路径。
+- `--screenshot ''`：禁用截图输出。
+
+如果脚本返回 `1`，表示抓到了浏览器报错（JS 运行时或控制台 error）；
+返回 `0` 表示页面在无头环境下基础加载正常。
