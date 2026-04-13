@@ -397,7 +397,7 @@
         },
         "action": {
           "type": "string",
-          "required": true,
+          "required": false,
           "description": "Required See Rule Actions for details."
         },
         "outbound": {
@@ -413,12 +413,12 @@
         },
         "mode": {
           "type": "string",
-          "required": true,
+          "required": false,
           "description": "Required and or or"
         },
         "rules": {
           "type": "array_object",
-          "required": true,
+          "required": false,
           "description": "Required Included rules."
         }
       },

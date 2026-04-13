@@ -1,4 +1,5 @@
 import pytest
+import json
 
 from tools.core.linter import ProjectLinter
 
@@ -159,3 +160,12 @@ def test_linter_wraps_scalar_array_fields_as_atomic_items():
     result = ProjectLinter().lint(config)
     assert result.config["dns"]["rules"][0]["query_type"] == ["AAAA"]
     assert result.config["route"]["rules"][0]["ip_version"] == [4]
+
+
+def test_route_rule_schema_required_flags_are_polymorphic():
+    with open("generated/configuration-schemas/route.json", "r", encoding="utf-8") as fh:
+        schema = json.load(fh)
+    rule_page = next(page for page in schema["pages"] if page["page_id"] == "rule")
+    assert rule_page["fields"]["action"]["required"] is False
+    assert rule_page["fields"]["mode"]["required"] is False
+    assert rule_page["fields"]["rules"]["required"] is False

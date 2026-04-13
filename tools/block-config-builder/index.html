@@ -1744,6 +1744,14 @@ function shouldEnforceRequired(block, fieldName) {
   const realityEnabled = getNestedValue(block.values, 'reality.enabled') === true
     || getNestedValue(block.values, 'tls.reality.enabled') === true;
   if (realityEnabled && ['private_key', 'external_account', 'external_id'].includes(leaf)) return false;
+
+  if (block.moduleName === 'route' && (block.pageId === 'rule' || block.pageId === 'rule_action')) {
+    const hasOutbound = Boolean(getNestedValue(block.values, 'outbound'));
+    const hasAction = Boolean(getNestedValue(block.values, 'action'));
+    const logicalType = String(getNestedValue(block.values, 'type') || '') === 'logical';
+    if (leaf === 'action' && hasOutbound && !hasAction) return false;
+    if ((leaf === 'mode' || leaf === 'rules') && !logicalType) return false;
+  }
   return true;
 }
 
