@@ -674,7 +674,7 @@
           "description": "TUIC users"
         },
         "users.uuid": {
-          "type": "integer",
+          "type": "string",
           "required": true,
           "description": "Required TUIC user uuid"
         },
@@ -1038,7 +1038,7 @@
           "description": "Required VLESS users."
         },
         "users.uuid": {
-          "type": "integer",
+          "type": "string",
           "required": true,
           "description": "Required VLESS user id."
         },

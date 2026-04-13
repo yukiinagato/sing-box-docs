@@ -159,7 +159,7 @@
           "description": "Tags of Inbound."
         },
         "ip_version": {
-          "type": "string",
+          "type": "array_integer",
           "required": false,
           "description": "4 or 6."
         },
@@ -185,12 +185,12 @@
           "description": "Changes in sing-box 1.13.0 Since sing-box 1.13.0, you can match ICMP echo (ping) requests via the new icmp network."
         },
         "domain": {
-          "type": "string",
+          "type": "array_string",
           "required": false,
           "description": "Match full domain."
         },
         "domain_suffix": {
-          "type": "string",
+          "type": "array_string",
           "required": false,
           "description": "Match domain suffix."
         },
@@ -223,9 +223,9 @@
           "description": "Deprecated in sing-box 1.8.0 GeoIP is deprecated and will be removed in sing-box 1.12.0, check Migration."
         },
         "source_ip_cidr": {
-          "type": "integer",
+          "type": "array_string",
           "required": false,
-          "description": "Match source IP CIDR."
+          "description": "Match IP CIDR list (e.g. 198.18.0.0/15)."
         },
         "ip_is_private": {
           "type": "string",
@@ -233,9 +233,9 @@
           "since": "1.8.0"
         },
         "ip_cidr": {
-          "type": "integer",
+          "type": "array_string",
           "required": false,
-          "description": "Match IP CIDR."
+          "description": "Match IP CIDR list (e.g. 198.18.0.0/15)."
         },
         "source_ip_is_private": {
           "type": "string",

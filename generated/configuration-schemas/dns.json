@@ -130,12 +130,12 @@
           "description": "Tags of Inbound."
         },
         "ip_version": {
-          "type": "array_object",
+          "type": "array_integer",
           "required": false,
           "description": "Changes in sing-box 1.14.0 This field now also applies when a DNS rule is matched from an internal domain resolution that does not target a specific DNS server, such as a resolve route rule action without a server set."
         },
         "query_type": {
-          "type": "array_object",
+          "type": "array_string",
           "required": false,
           "description": "Changes in sing-box 1.14.0 This field now also applies when a DNS rule is matched from an internal domain resolution that does not target a specific DNS server, such as a resolve route rule action without a server set."
         },
@@ -155,12 +155,12 @@
           "description": "Sniffed protocol, see Sniff for details."
         },
         "domain": {
-          "type": "string",
+          "type": "array_string",
           "required": false,
           "description": "Match full domain."
         },
         "domain_suffix": {
-          "type": "string",
+          "type": "array_string",
           "required": false,
           "description": "Match domain suffix."
         },
@@ -187,9 +187,9 @@
           "description": "Deprecated in sing-box 1.8.0 GeoIP is deprecated and will be removed in sing-box 1.12.0, check Migration."
         },
         "source_ip_cidr": {
-          "type": "integer",
+          "type": "array_string",
           "required": false,
-          "description": "Match source IP CIDR."
+          "description": "Match IP CIDR list (e.g. 198.18.0.0/15)."
         },
         "source_ip_is_private": {
           "type": "string",
@@ -395,10 +395,10 @@
           "description": "Removed in sing-box 1.12.0 GeoIP is deprecated in sing-box 1.8.0 and removed in sing-box 1.12.0, check Migration."
         },
         "ip_cidr": {
-          "type": "integer",
+          "type": "array_string",
           "required": false,
           "since": "1.9.0",
-          "description": "As a Legacy Address Filter Field, deprecated."
+          "description": "Match IP CIDR list (e.g. 198.18.0.0/15)."
         },
         "ip_is_private": {
           "type": "string",

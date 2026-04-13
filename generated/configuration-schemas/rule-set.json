@@ -37,7 +37,7 @@
       "title": "Headless Rule",
       "fields": {
         "query_type": {
-          "type": "array_object",
+          "type": "array_string",
           "required": false,
           "description": "Changes in sing-box 1.14.0 When a DNS rule references this rule-set, this field now also applies when the DNS rule is matched from an internal domain resolution that does not target a specific DNS server."
         },
@@ -47,12 +47,12 @@
           "description": "tcp or udp."
         },
         "domain": {
-          "type": "string",
+          "type": "array_string",
           "required": false,
           "description": "Match full domain."
         },
         "domain_suffix": {
-          "type": "string",
+          "type": "array_string",
           "required": false,
           "description": "Match domain suffix."
         },
@@ -67,14 +67,14 @@
           "description": "Match domain using regular expression."
         },
         "source_ip_cidr": {
-          "type": "integer",
+          "type": "array_string",
           "required": false,
-          "description": "Match source IP CIDR."
+          "description": "Match IP CIDR list (e.g. 198.18.0.0/15)."
         },
         "ip_cidr": {
-          "type": "integer",
+          "type": "array_string",
           "required": false,
-          "description": "ip_cidr is an alias for source_ip_cidr when rule_set_ipcidr_match_source enabled in route/DNS rules."
+          "description": "Match IP CIDR list (e.g. 198.18.0.0/15)."
         },
         "source_port": {
           "type": "integer",
