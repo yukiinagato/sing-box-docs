@@ -1,4 +1,5 @@
 import pytest
+import json
 
 from tools.core.linter import ProjectLinter
 
@@ -112,3 +113,70 @@ def test_linter_enforces_root_whitelist():
     result = ProjectLinter().lint(config)
     assert "foo" not in result.config
     assert any("illegal root field removed: foo" in w for w in result.warnings)
+
+
+def test_linter_accepts_golden_style_uuid_cidr_and_actions():
+    config = {
+        "dns": {
+            "servers": [{"tag": "dns_direct", "type": "https", "server": "1.1.1.1"}],
+            "rules": [{"domain_suffix": [".lan"], "server": "dns_direct"}],
+            "final": "dns_direct",
+        },
+        "inbounds": [{"type": "tproxy", "tag": "tproxy-in", "listen": "::", "listen_port": 12345}],
+        "outbounds": [
+            {"type": "direct", "tag": "direct"},
+            {
+                "type": "vmess",
+                "tag": "proxy",
+                "server": "116.147.152.85",
+                "server_port": 4551,
+                "uuid": "2b776a49-4136-4b2b-9cf7-7d86be3198b0",
+            },
+        ],
+        "route": {
+            "rules": [
+                {"action": "sniff"},
+                {"protocol": "dns", "action": "hijack-dns"},
+                {"source_ip_cidr": ["10.10.38.44/32"], "outbound": "proxy"},
+            ]
+        },
+    }
+    result = ProjectLinter().lint(config)
+    assert result.config["outbounds"][1]["uuid"] == "2b776a49-4136-4b2b-9cf7-7d86be3198b0"
+    assert result.config["route"]["rules"][0]["action"] == "sniff"
+    assert result.config["route"]["rules"][1]["action"] == "hijack-dns"
+
+
+def test_linter_wraps_scalar_array_fields_as_atomic_items():
+    config = {
+        "dns": {
+            "servers": [{"tag": "dns-local", "type": "udp", "server": "127.0.0.1"}],
+            "rules": [{"query_type": "AAAA", "server": "dns-local"}],
+        },
+        "route": {"rules": [{"ip_version": 4, "outbound": "direct"}]},
+        "outbounds": [{"type": "direct", "tag": "direct"}],
+        "inbounds": [],
+    }
+    result = ProjectLinter().lint(config)
+    assert result.config["dns"]["rules"][0]["query_type"] == ["AAAA"]
+    assert result.config["route"]["rules"][0]["ip_version"] == [4]
+
+
+def test_route_rule_schema_required_flags_are_polymorphic():
+    with open("generated/configuration-schemas/route.json", "r", encoding="utf-8") as fh:
+        schema = json.load(fh)
+    rule_page = next(page for page in schema["pages"] if page["page_id"] == "rule")
+    assert rule_page["fields"]["action"]["required"] is False
+    assert rule_page["fields"]["mode"]["required"] is False
+    assert rule_page["fields"]["rules"]["required"] is False
+
+
+def test_tls_schema_reality_fields_are_contextual_not_globally_required():
+    with open("generated/configuration-schemas/shared.json", "r", encoding="utf-8") as fh:
+        schema = json.load(fh)
+    tls_page = next(page for page in schema["pages"] if page["page_id"] == "tls")
+    assert tls_page["fields"]["handshake"]["required"] is False
+    assert tls_page["fields"]["private_key"]["required"] is False
+    assert tls_page["fields"]["public_key"]["required"] is False
+    assert tls_page["fields"]["short_id"]["required"] is False
+    assert tls_page["fields"]["external_account.key_id"]["type"] == "string"

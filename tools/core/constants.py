@@ -39,6 +39,45 @@ ROOT_ALLOWED_KEYS = {
 
 ROOT_SHARED_KEYS = ("tls", "transport", "v2ray_transport", "multiplex", "multipath", "mux")
 
+# Semantic field calibration for builders/importers.
+STRING_FIELD_KEYS = {
+    "uuid",
+    "server",
+    "server_name",
+    "public_key",
+    "private_key",
+    "short_id",
+    "password",
+    "ip_cidr",
+    "inet4_range",
+    "inet6_range",
+    "address",
+}
+
+NUMBER_FIELD_KEYS = {
+    "port",
+    "server_port",
+    "listen_port",
+    "ip_version",
+    "udp_timeout",
+}
+
+ARRAY_STRING_FIELD_KEYS = {
+    "query_type",
+    "domain_suffix",
+    "domain",
+}
+
+ARRAY_INTEGER_FIELD_KEYS = {
+    "ip_version",
+}
+
+ARRAY_CIDR_FIELD_KEYS = {
+    "ip_cidr",
+    "source_ip_cidr",
+    "destination_ip_cidr",
+}
+
 # UI schema hints: fields that should be rendered as enum select widgets.
 # Keep this list aligned with sing-box docs and tests' expected_config values.
 ENUM_FIELD_OPTIONS = {
