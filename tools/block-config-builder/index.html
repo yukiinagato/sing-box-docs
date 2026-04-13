@@ -454,7 +454,7 @@ const FIELD_TYPE_OVERRIDES = {
   source_ip_cidr: 'array_string',
   ip_cidr: 'array_string',
   destination_ip_cidr: 'array_string',
-  ip_version: 'array_integer',
+  ip_version: 'integer',
   query_type: 'array_string',
   domain_suffix: 'array_string',
   server: 'string',
@@ -1080,17 +1080,34 @@ function bindDragHandlers(card) {
   });
 }
 
+function coerceArrayAtom(fieldPath, fieldType, rawValue) {
+  if (fieldType === 'array_integer') {
+    const numeric = Number(rawValue);
+    return Number.isFinite(numeric) ? numeric : null;
+  }
+  const leaf = String(fieldPath || '').split('.').at(-1) || '';
+  if (leaf === 'query_type') {
+    if (typeof rawValue === 'number') return Number.isFinite(rawValue) ? rawValue : null;
+    const token = String(rawValue).trim();
+    if (!token) return null;
+    if (/^-?\d+$/.test(token)) return Number(token);
+    return token;
+  }
+  return String(rawValue);
+}
+
 function bindWorkspaceDelegation() {
-  const normalizeAtomicArrayValue = (value, fieldType) => {
+  const normalizeAtomicArrayValue = (value, fieldType, fieldPath) => {
     if (fieldType === 'array_string') {
-      if (Array.isArray(value)) return value.map((item) => String(item));
+      if (Array.isArray(value)) return value.map((item) => coerceArrayAtom(fieldPath, fieldType, item)).filter((item) => item !== null);
       if (value === '' || value === null || value === undefined) return [];
-      return [String(value)];
+      const atom = coerceArrayAtom(fieldPath, fieldType, value);
+      return atom === null ? [] : [atom];
     }
     if (fieldType === 'array_integer') {
-      if (Array.isArray(value)) return value.map((item) => Number(item)).filter((item) => Number.isFinite(item));
-      const next = Number(value);
-      return Number.isFinite(next) ? [next] : [];
+      if (Array.isArray(value)) return value.map((item) => coerceArrayAtom(fieldPath, fieldType, item)).filter((item) => item !== null);
+      const next = coerceArrayAtom(fieldPath, fieldType, value);
+      return next !== null ? [next] : [];
     }
     return value;
   };
@@ -1102,7 +1119,7 @@ function bindWorkspaceDelegation() {
     const block = state.blocksData.find((item) => item.id === blockId);
     if (!block) return;
     const raw = readInputValue(target, target.dataset.fieldType);
-    setNestedValue(block.values, fieldPath, normalizeAtomicArrayValue(raw, target.dataset.fieldType));
+    setNestedValue(block.values, fieldPath, normalizeAtomicArrayValue(raw, target.dataset.fieldType, fieldPath));
     rerenderOutput({ refreshWorkspace: false });
   };
 
@@ -1244,8 +1261,8 @@ function bindWorkspaceDelegation() {
       els.errors.textContent = validationError;
       return;
     }
-    const nextValue = type === 'array_integer' ? Number(raw) : raw;
-    if (type === 'array_integer' && !Number.isFinite(nextValue)) return;
+    const nextValue = coerceArrayAtom(fieldPath, type, raw);
+    if (nextValue === null) return;
     const list = getNestedValue(block.values, fieldPath);
     const normalized = Array.isArray(list) ? [...list] : [];
     normalized.push(nextValue);
@@ -1402,7 +1419,8 @@ function renderField(block, fieldName, spec, depth = 0, breadcrumb = []) {
       enumSelect.addEventListener('change', () => {
         if (!enumSelect.value) return;
         const next = Array.isArray(getNestedValue(block.values, fieldName)) ? [...getNestedValue(block.values, fieldName)] : [];
-        const atom = type === 'array_integer' ? Number(enumSelect.value) : enumSelect.value;
+        const atom = coerceArrayAtom(fieldName, type, enumSelect.value);
+        if (atom === null) return;
         next.push(atom);
         setNestedValue(block.values, fieldName, next);
         enumSelect.value = '';

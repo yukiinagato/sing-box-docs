@@ -130,7 +130,7 @@
           "description": "Tags of Inbound."
         },
         "ip_version": {
-          "type": "array_integer",
+          "type": "integer",
           "required": false,
           "description": "Changes in sing-box 1.14.0 This field now also applies when a DNS rule is matched from an internal domain resolution that does not target a specific DNS server, such as a resolve route rule action without a server set."
         },
