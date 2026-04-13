@@ -9,6 +9,8 @@ from dataclasses import dataclass
 from typing import Any
 
 from tools.core.constants import (
+    ARRAY_CIDR_FIELD_KEYS,
+    ARRAY_INTEGER_FIELD_KEYS,
     ARRAY_STRING_FIELD_KEYS,
     NON_NATIVE_FIELD_PREFIXES,
     NUMBER_FIELD_KEYS,
@@ -86,7 +88,7 @@ class ProjectLinter:
             for key in list(node.keys()):
                 value = node[key]
                 next_path = f"{path}.{key}"
-                if key in STRING_FIELD_KEYS and value is not None and not isinstance(value, str):
+                if key in STRING_FIELD_KEYS and isinstance(value, (int, float, bool)):
                     node[key] = str(value)
                     warnings.append(f"coerced {next_path} to string")
                     value = node[key]
@@ -94,12 +96,26 @@ class ProjectLinter:
                     node[key] = int(value)
                     warnings.append(f"coerced {next_path} to integer")
                     value = node[key]
-                elif key in ARRAY_STRING_FIELD_KEYS and isinstance(value, list):
+                elif key in (ARRAY_STRING_FIELD_KEYS | ARRAY_CIDR_FIELD_KEYS) and isinstance(value, list):
                     casted = [str(item) for item in value]
                     if casted != value:
                         node[key] = casted
                         warnings.append(f"coerced {next_path} list entries to string")
                         value = node[key]
+                elif key in (ARRAY_STRING_FIELD_KEYS | ARRAY_CIDR_FIELD_KEYS) and isinstance(value, (str, int, float, bool)):
+                    node[key] = [str(value)]
+                    warnings.append(f"wrapped {next_path} scalar into string array")
+                    value = node[key]
+                elif key in ARRAY_INTEGER_FIELD_KEYS and isinstance(value, list):
+                    casted_int = [int(item) for item in value if isinstance(item, (int, float, str)) and str(item).strip().isdigit()]
+                    if casted_int and casted_int != value:
+                        node[key] = casted_int
+                        warnings.append(f"coerced {next_path} list entries to integer")
+                        value = node[key]
+                elif key in ARRAY_INTEGER_FIELD_KEYS and isinstance(value, (int, float, str)) and str(value).strip().isdigit():
+                    node[key] = [int(value)]
+                    warnings.append(f"wrapped {next_path} scalar into integer array")
+                    value = node[key]
                 self._calibrate_semantic_types(value, warnings, next_path)
             return node
         if isinstance(node, list):
@@ -111,7 +127,7 @@ class ProjectLinter:
         if isinstance(node, dict):
             for key, value in node.items():
                 next_path = f"{path}.{key}"
-                if key in ARRAY_STRING_FIELD_KEYS and isinstance(value, list):
+                if key in ARRAY_CIDR_FIELD_KEYS and isinstance(value, list):
                     for idx, cidr in enumerate(value):
                         if not isinstance(cidr, str):
                             raise ValueError(f"{next_path}[{idx}] must be string CIDR")
@@ -119,6 +135,13 @@ class ProjectLinter:
                             ipaddress.ip_network(cidr, strict=False)
                         except ValueError as exc:
                             raise ValueError(f"{next_path}[{idx}] invalid CIDR: {cidr}") from exc
+                if key == "ip_version":
+                    if isinstance(value, list):
+                        for idx, item in enumerate(value):
+                            if item not in {4, 6}:
+                                raise ValueError(f"{next_path}[{idx}] invalid ip_version: {item}")
+                    elif value not in (None, 4, 6):
+                        raise ValueError(f"{next_path} invalid ip_version: {value}")
                 self._validate_ip_cidr_fields(value, next_path)
             return
         if isinstance(node, list):

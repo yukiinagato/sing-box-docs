@@ -144,3 +144,18 @@ def test_linter_accepts_golden_style_uuid_cidr_and_actions():
     assert result.config["outbounds"][1]["uuid"] == "2b776a49-4136-4b2b-9cf7-7d86be3198b0"
     assert result.config["route"]["rules"][0]["action"] == "sniff"
     assert result.config["route"]["rules"][1]["action"] == "hijack-dns"
+
+
+def test_linter_wraps_scalar_array_fields_as_atomic_items():
+    config = {
+        "dns": {
+            "servers": [{"tag": "dns-local", "type": "udp", "server": "127.0.0.1"}],
+            "rules": [{"query_type": "AAAA", "server": "dns-local"}],
+        },
+        "route": {"rules": [{"ip_version": 4, "outbound": "direct"}]},
+        "outbounds": [{"type": "direct", "tag": "direct"}],
+        "inbounds": [],
+    }
+    result = ProjectLinter().lint(config)
+    assert result.config["dns"]["rules"][0]["query_type"] == ["AAAA"]
+    assert result.config["route"]["rules"][0]["ip_version"] == [4]

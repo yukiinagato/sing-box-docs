@@ -48,15 +48,31 @@ STRING_FIELD_KEYS = {
     "private_key",
     "short_id",
     "password",
+    "ip_cidr",
+    "inet4_range",
+    "inet6_range",
+    "address",
 }
 
 NUMBER_FIELD_KEYS = {
+    "port",
     "server_port",
     "listen_port",
+    "ip_version",
     "udp_timeout",
 }
 
 ARRAY_STRING_FIELD_KEYS = {
+    "query_type",
+    "domain_suffix",
+    "domain",
+}
+
+ARRAY_INTEGER_FIELD_KEYS = {
+    "ip_version",
+}
+
+ARRAY_CIDR_FIELD_KEYS = {
     "ip_cidr",
     "source_ip_cidr",
     "destination_ip_cidr",

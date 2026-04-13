@@ -454,10 +454,15 @@ const FIELD_TYPE_OVERRIDES = {
   source_ip_cidr: 'array_string',
   ip_cidr: 'array_string',
   destination_ip_cidr: 'array_string',
+  ip_version: 'array_integer',
+  query_type: 'array_string',
+  domain_suffix: 'array_string',
   server: 'string',
   server_name: 'string',
   public_key: 'string',
   private_key: 'string',
+  inet4_range: 'string',
+  inet6_range: 'string',
 };
 
 const WIZARD_STEPS = [
@@ -543,7 +548,7 @@ async function bootstrap() {
 
 async function loadSharedDefinitions() {
   try {
-    const resp = await fetch('../core/schema_shared.json');
+    const resp = await fetch('/tools/core/schema_shared.json');
     const defs = await resp.json();
     state.sharedDefs = defs || {};
     for (const key of defs.root_allowed_keys || []) ROOT_ALLOWED_KEYS.add(key);
@@ -1177,11 +1182,12 @@ function bindWorkspaceDelegation() {
       const fieldPath = target.dataset.fieldPath;
       if (!fieldPath) return;
       const list = getNestedValue(block.values, fieldPath);
+      const fieldSpec = block.fields?.[fieldPath] || {};
       const templates = getArrayObjectTemplates(block, fieldPath);
       const select = card.querySelector(`[data-role="array-template-select"][data-field-path="${CSS.escape(fieldPath)}"]`);
       const selectedId = select?.value;
       const tpl = templates.find((item) => item.id === selectedId) || templates[0];
-      const nextItem = structuredClone(tpl?.payload || {});
+      const nextItem = structuredClone(tpl?.payload || buildArrayItemFromSchema(fieldSpec));
       const next = Array.isArray(list) ? [...list, nextItem] : [nextItem];
       setNestedValue(block.values, fieldPath, next);
       rerenderOutput({ refreshWorkspace: true });
@@ -1352,6 +1358,7 @@ function renderField(block, fieldName, spec, depth = 0, breadcrumb = []) {
     wrap.appendChild(switchWrap);
   } else if (type === 'array_integer' || type === 'array_string') {
     const list = Array.isArray(current) ? current : [];
+    const arrayItemOptions = Array.isArray(spec?.items?.enum) ? spec.items.enum : null;
     const tagWrap = document.createElement('div');
     tagWrap.className = 'tag-input';
     list.forEach((item, idx) => {
@@ -1366,6 +1373,26 @@ function renderField(block, fieldName, spec, depth = 0, breadcrumb = []) {
     input.placeholder = type === 'array_integer' ? '輸入數字，回車新增' : '輸入內容，回車新增';
     input.dataset.role = 'tag-editor';
     tagWrap.appendChild(input);
+    if (arrayItemOptions?.length) {
+      const enumSelect = document.createElement('select');
+      enumSelect.innerHTML = '<option value="">選擇預設值追加</option>';
+      arrayItemOptions.forEach((option) => {
+        const opt = document.createElement('option');
+        opt.value = String(option);
+        opt.textContent = String(option);
+        enumSelect.appendChild(opt);
+      });
+      enumSelect.addEventListener('change', () => {
+        if (!enumSelect.value) return;
+        const next = Array.isArray(getNestedValue(block.values, fieldName)) ? [...getNestedValue(block.values, fieldName)] : [];
+        const atom = type === 'array_integer' ? Number(enumSelect.value) : enumSelect.value;
+        next.push(atom);
+        setNestedValue(block.values, fieldName, next);
+        enumSelect.value = '';
+        rerenderOutput({ refreshWorkspace: false });
+      });
+      tagWrap.appendChild(enumSelect);
+    }
     if (references?.length && type === 'array_string') {
       const refSelect = document.createElement('select');
       refSelect.dataset.role = 'tag-editor';
@@ -1392,7 +1419,7 @@ function renderField(block, fieldName, spec, depth = 0, breadcrumb = []) {
     wrap.appendChild(tagWrap);
   } else if (type === 'array_object') {
     const list = Array.isArray(current) ? current : [];
-    wrap.appendChild(renderArrayObjectField(block, fieldName, list));
+    wrap.appendChild(renderArrayObjectField(block, fieldName, list, spec));
     input = null;
   } else if (type === 'object') {
     const objectWrap = document.createElement('div');
@@ -1591,10 +1618,29 @@ function renderArrayObjectItemField(block, fieldPath, itemIndex, key, value) {
   return field;
 }
 
-function renderArrayObjectField(block, fieldPath, list) {
+function extractArrayItemSchemaMap(spec) {
+  const items = spec?.items;
+  if (!items || typeof items !== 'object') return {};
+  if (items.properties && typeof items.properties === 'object') return items.properties;
+  return Object.fromEntries(
+    Object.entries(items).filter(([k]) => !['type', 'description', 'required', 'default'].includes(k))
+  );
+}
+
+function buildArrayItemFromSchema(spec) {
+  const schemaMap = extractArrayItemSchemaMap(spec);
+  const item = {};
+  Object.entries(schemaMap).forEach(([key, entry]) => {
+    item[key] = inferDefault(entry || { type: 'string' });
+  });
+  return item;
+}
+
+function renderArrayObjectField(block, fieldPath, list, spec = {}) {
   const container = document.createElement('div');
   container.className = 'array-object-container';
   const templates = getArrayObjectTemplates(block, fieldPath);
+  const itemSchemaMap = extractArrayItemSchemaMap(spec);
 
   const toolbar = document.createElement('div');
   toolbar.className = 'array-object-toolbar';
@@ -1645,7 +1691,8 @@ function renderArrayObjectField(block, fieldPath, list) {
     const body = document.createElement('div');
     body.className = 'array-item-grid';
     const keys = getArrayObjectVisibleKeys(fieldPath, item);
-    keys.forEach((key) => {
+    const mergedKeys = [...new Set([...keys, ...Object.keys(itemSchemaMap)])];
+    mergedKeys.forEach((key) => {
       body.appendChild(renderArrayObjectItemField(block, fieldPath, index, key, item?.[key]));
     });
     card.appendChild(body);
@@ -2165,18 +2212,21 @@ function bindGlobalActions() {
 }
 
 async function normalizeImportedConfig(config) {
-  try {
-    const resp = await fetch('/tools/lint-config', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify(config),
-    });
-    if (resp.ok) {
-      const payload = await resp.json();
-      if (payload?.config && typeof payload.config === 'object') return payload.config;
+  const shouldUseRemoteLint = new URLSearchParams(location.search).get('remote_lint') === '1';
+  if (shouldUseRemoteLint) {
+    try {
+      const resp = await fetch('/tools/lint-config', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(config),
+      });
+      if (resp.ok) {
+        const payload = await resp.json();
+        if (payload?.config && typeof payload.config === 'object') return payload.config;
+      }
+    } catch {
+      // Ignore backend transport errors and fallback to local normalization.
     }
-  } catch {
-    // Ignore backend transport errors and fallback to local normalization.
   }
   const draft = structuredClone(config);
   const lintErrors = [];
