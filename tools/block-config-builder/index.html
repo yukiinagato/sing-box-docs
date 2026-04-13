@@ -449,6 +449,16 @@ const KNOWN_SCHEMA_FILES = [
 ];
 
 const ENUM_FIELD_OPTIONS = {};
+const FIELD_TYPE_OVERRIDES = {
+  uuid: 'string',
+  source_ip_cidr: 'array_string',
+  ip_cidr: 'array_string',
+  destination_ip_cidr: 'array_string',
+  server: 'string',
+  server_name: 'string',
+  public_key: 'string',
+  private_key: 'string',
+};
 
 const WIZARD_STEPS = [
   { key: 'log', title: 'Step 1 · log', modules: ['log'], rootPath: 'log' },
@@ -721,6 +731,7 @@ function renderLibrary() {
 
 function createBlock(moduleName, page, preset = {}) {
   const fields = structuredClone(page.fields || {});
+  calibrateFieldSpecs(fields);
   const values = {};
   const basePayload = {};
   const secureDefaults = state.sharedDefs?.ui_secure_defaults || {};
@@ -752,6 +763,15 @@ function createBlock(moduleName, page, preset = {}) {
     role: classifyBlockRole(moduleName, page),
     parentId: moduleName === 'shared' ? findPreferredSharedParentId() : null,
   };
+}
+
+function calibrateFieldSpecs(fields) {
+  Object.entries(fields || {}).forEach(([path, spec]) => {
+    const leaf = String(path).split('.').at(-1);
+    if (!leaf || !spec || typeof spec !== 'object') return;
+    const forcedType = FIELD_TYPE_OVERRIDES[leaf];
+    if (forcedType) spec.type = forcedType;
+  });
 }
 
 function classifyBlockRole(moduleName, page) {
@@ -1421,7 +1441,7 @@ function renderField(block, fieldName, spec, depth = 0, breadcrumb = []) {
     wrap.appendChild(hint);
   }
 
-  const fieldErrors = validateField(getNestedValue(block.values, fieldName), spec);
+  const fieldErrors = validateField(block, fieldName, getNestedValue(block.values, fieldName), spec);
   const keyErrors = validateShadowsocksKey(block, fieldName, getNestedValue(block.values, fieldName));
   const mergedErrors = [...fieldErrors, ...keyErrors];
   if (mergedErrors.length) {
@@ -1655,9 +1675,17 @@ function readInputValue(input, type) {
   return input.value;
 }
 
-function validateField(value, spec) {
+function shouldEnforceRequired(block, fieldName) {
+  const leaf = String(fieldName).split('.').at(-1) || '';
+  const realityEnabled = getNestedValue(block.values, 'reality.enabled') === true
+    || getNestedValue(block.values, 'tls.reality.enabled') === true;
+  if (realityEnabled && ['private_key', 'external_account', 'external_id'].includes(leaf)) return false;
+  return true;
+}
+
+function validateField(block, fieldName, value, spec) {
   const errs = [];
-  if (spec.required && (value === '' || value === null || value === undefined)) {
+  if (spec.required && shouldEnforceRequired(block, fieldName) && (value === '' || value === null || value === undefined)) {
     errs.push('必填欄位不可為空');
   }
   if (value && typeof value === 'object' && value.__parse_error) errs.push('Object JSON 格式錯誤');
@@ -1816,7 +1844,7 @@ function buildMergedConfig() {
 
     for (const [name, spec] of Object.entries(block.fields)) {
       const value = getNestedValue(block.values, name);
-      const fieldErrors = validateField(value, spec);
+      const fieldErrors = validateField(block, name, value, spec);
       const keyErrors = validateShadowsocksKey(block, name, value);
       const allErrors = [...fieldErrors, ...keyErrors];
       if (allErrors.length) {

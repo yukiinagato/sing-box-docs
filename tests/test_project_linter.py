@@ -112,3 +112,35 @@ def test_linter_enforces_root_whitelist():
     result = ProjectLinter().lint(config)
     assert "foo" not in result.config
     assert any("illegal root field removed: foo" in w for w in result.warnings)
+
+
+def test_linter_accepts_golden_style_uuid_cidr_and_actions():
+    config = {
+        "dns": {
+            "servers": [{"tag": "dns_direct", "type": "https", "server": "1.1.1.1"}],
+            "rules": [{"domain_suffix": [".lan"], "server": "dns_direct"}],
+            "final": "dns_direct",
+        },
+        "inbounds": [{"type": "tproxy", "tag": "tproxy-in", "listen": "::", "listen_port": 12345}],
+        "outbounds": [
+            {"type": "direct", "tag": "direct"},
+            {
+                "type": "vmess",
+                "tag": "proxy",
+                "server": "116.147.152.85",
+                "server_port": 4551,
+                "uuid": "2b776a49-4136-4b2b-9cf7-7d86be3198b0",
+            },
+        ],
+        "route": {
+            "rules": [
+                {"action": "sniff"},
+                {"protocol": "dns", "action": "hijack-dns"},
+                {"source_ip_cidr": ["10.10.38.44/32"], "outbound": "proxy"},
+            ]
+        },
+    }
+    result = ProjectLinter().lint(config)
+    assert result.config["outbounds"][1]["uuid"] == "2b776a49-4136-4b2b-9cf7-7d86be3198b0"
+    assert result.config["route"]["rules"][0]["action"] == "sniff"
+    assert result.config["route"]["rules"][1]["action"] == "hijack-dns"

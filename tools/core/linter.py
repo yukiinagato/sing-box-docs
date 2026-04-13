@@ -8,7 +8,15 @@ import ipaddress
 from dataclasses import dataclass
 from typing import Any
 
-from tools.core.constants import NON_NATIVE_FIELD_PREFIXES, ROOT_ALLOWED_KEYS, ROOT_SHARED_KEYS, SHADOWSOCKS_2022_KEY_BYTES
+from tools.core.constants import (
+    ARRAY_STRING_FIELD_KEYS,
+    NON_NATIVE_FIELD_PREFIXES,
+    NUMBER_FIELD_KEYS,
+    ROOT_ALLOWED_KEYS,
+    ROOT_SHARED_KEYS,
+    SHADOWSOCKS_2022_KEY_BYTES,
+    STRING_FIELD_KEYS,
+)
 
 ALLOWED_ROOT_KEYS = ROOT_ALLOWED_KEYS
 SHARED_OBJECT_ROOT_KEYS = set(ROOT_SHARED_KEYS) | {"tcp_brutal", "udp_over_tcp"}
@@ -55,6 +63,7 @@ class ProjectLinter:
         normalized = copy.deepcopy(config)
         warnings: list[str] = []
 
+        self._calibrate_semantic_types(normalized, warnings)
         self._strip_non_native_fields(normalized, warnings)
         self._repair_root_scope_pollution(normalized, warnings)
         self._repair_shared_child_scopes(normalized, warnings)
@@ -68,8 +77,53 @@ class ProjectLinter:
         self._detect_detour_cycles(normalized)
         self._validate_shared_field_scopes(normalized, warnings)
         self._validate_shadowsocks_keys(normalized)
+        self._validate_ip_cidr_fields(normalized)
 
         return LintResult(config=normalized, warnings=warnings)
+
+    def _calibrate_semantic_types(self, node: Any, warnings: list[str], path: str = "$") -> Any:
+        if isinstance(node, dict):
+            for key in list(node.keys()):
+                value = node[key]
+                next_path = f"{path}.{key}"
+                if key in STRING_FIELD_KEYS and value is not None and not isinstance(value, str):
+                    node[key] = str(value)
+                    warnings.append(f"coerced {next_path} to string")
+                    value = node[key]
+                elif key in NUMBER_FIELD_KEYS and isinstance(value, str) and value.strip().isdigit():
+                    node[key] = int(value)
+                    warnings.append(f"coerced {next_path} to integer")
+                    value = node[key]
+                elif key in ARRAY_STRING_FIELD_KEYS and isinstance(value, list):
+                    casted = [str(item) for item in value]
+                    if casted != value:
+                        node[key] = casted
+                        warnings.append(f"coerced {next_path} list entries to string")
+                        value = node[key]
+                self._calibrate_semantic_types(value, warnings, next_path)
+            return node
+        if isinstance(node, list):
+            for idx, item in enumerate(node):
+                self._calibrate_semantic_types(item, warnings, f"{path}[{idx}]")
+        return node
+
+    def _validate_ip_cidr_fields(self, node: Any, path: str = "$") -> None:
+        if isinstance(node, dict):
+            for key, value in node.items():
+                next_path = f"{path}.{key}"
+                if key in ARRAY_STRING_FIELD_KEYS and isinstance(value, list):
+                    for idx, cidr in enumerate(value):
+                        if not isinstance(cidr, str):
+                            raise ValueError(f"{next_path}[{idx}] must be string CIDR")
+                        try:
+                            ipaddress.ip_network(cidr, strict=False)
+                        except ValueError as exc:
+                            raise ValueError(f"{next_path}[{idx}] invalid CIDR: {cidr}") from exc
+                self._validate_ip_cidr_fields(value, next_path)
+            return
+        if isinstance(node, list):
+            for idx, item in enumerate(node):
+                self._validate_ip_cidr_fields(item, f"{path}[{idx}]")
 
     def _strip_non_native_fields(self, node: Any, warnings: list[str], path: str = "$") -> None:
         if isinstance(node, dict):
