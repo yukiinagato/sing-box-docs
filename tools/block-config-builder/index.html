@@ -538,12 +538,48 @@ async function bootstrap() {
   await loadSharedDefinitions();
   const schemaFiles = await discoverSchemaFiles();
   await Promise.all(schemaFiles.map(loadSchema));
+  enrichSchemasWithSharedSections();
   renderWizard();
   renderLibrary();
   renderWorkspace();
   rerenderOutput();
   bindGlobalActions();
   bindWorkspaceDelegation();
+}
+
+function enrichSchemasWithSharedSections() {
+  const shared = state.schemas.get('shared');
+  if (!shared?.pages?.length) return;
+  const sharedPages = new Map(shared.pages.map((page) => [page.page_id, page]));
+  const titleToSharedPage = new Map([
+    ['listen fields', 'listen'],
+    ['dial fields', 'dial'],
+    ['tls fields', 'tls'],
+    ['multiplex fields', 'multiplex'],
+    ['v2ray transport fields', 'v2ray-transport'],
+    ['tcp brutal fields', 'tcp-brutal'],
+    ['udp over tcp fields', 'udp-over-tcp'],
+  ]);
+
+  for (const schema of state.schemas.values()) {
+    if (!Array.isArray(schema.pages)) continue;
+    for (const page of schema.pages) {
+      const fields = page.fields || {};
+      const titles = (page.section_titles || []).map((title) => String(title).trim().toLowerCase());
+      for (const title of titles) {
+        const sharedPageId = titleToSharedPage.get(title);
+        if (!sharedPageId) continue;
+        const sharedPage = sharedPages.get(sharedPageId);
+        if (!sharedPage?.fields) continue;
+        Object.entries(sharedPage.fields).forEach(([key, spec]) => {
+          if (!Object.hasOwn(fields, key)) {
+            fields[key] = structuredClone(spec);
+          }
+        });
+      }
+      page.fields = fields;
+    }
+  }
 }
 
 async function loadSharedDefinitions() {
