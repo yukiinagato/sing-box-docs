@@ -1772,9 +1772,38 @@ function inferCandidatePagesFromSchema(block, fieldPath) {
   return [];
 }
 
+function setNestedSchemaField(target, path, entry) {
+  const segments = String(path || '').split('.').filter(Boolean);
+  if (!segments.length) return;
+  let cursor = target;
+  for (let i = 0; i < segments.length; i += 1) {
+    const seg = segments[i];
+    const isLeaf = i === segments.length - 1;
+    if (isLeaf) {
+      cursor[seg] = entry;
+      return;
+    }
+    if (!cursor[seg] || typeof cursor[seg] !== 'object') {
+      cursor[seg] = { type: 'object', properties: {} };
+    }
+    if (!cursor[seg].properties || typeof cursor[seg].properties !== 'object') {
+      cursor[seg].properties = {};
+    }
+    cursor = cursor[seg].properties;
+  }
+}
+
+function normalizeSchemaFieldMap(fields) {
+  const normalized = {};
+  Object.entries(fields || {}).forEach(([path, entry]) => {
+    setNestedSchemaField(normalized, path, entry);
+  });
+  return normalized;
+}
+
 function inferArrayItemSchemaMap(block, fieldPath, spec) {
   const direct = extractArrayItemSchemaMap(spec);
-  if (Object.keys(direct).length) return direct;
+  if (Object.keys(direct).length) return normalizeSchemaFieldMap(direct);
   const merged = {};
   const candidates = inferCandidatePagesFromSchema(block, fieldPath);
   for (const candidate of candidates) {
@@ -1785,7 +1814,7 @@ function inferArrayItemSchemaMap(block, fieldPath, spec) {
     });
   }
   if (Object.keys(merged).length) {
-    return merged;
+    return normalizeSchemaFieldMap(merged);
   }
   return {};
 }
@@ -1804,12 +1833,25 @@ function defaultValueForSchemaField(entry = {}) {
   }
 }
 
+function buildDefaultObjectFromSchemaMap(schemaMap = {}) {
+  const obj = {};
+  Object.entries(schemaMap).forEach(([key, entry]) => {
+    obj[key] = buildDefaultValueFromSchemaEntry(entry);
+  });
+  return obj;
+}
+
+function buildDefaultValueFromSchemaEntry(entry = {}) {
+  const resolved = resolveSchemaNode(entry) || entry || {};
+  if (resolved.type === 'object' && resolved.properties && typeof resolved.properties === 'object') {
+    return buildDefaultObjectFromSchemaMap(resolved.properties);
+  }
+  return defaultValueForSchemaField(resolved);
+}
+
 function buildArrayItemFromSchema(spec, block, fieldPath) {
   const schemaMap = inferArrayItemSchemaMap(block, fieldPath, spec);
-  const item = {};
-  Object.entries(schemaMap).forEach(([key, entry]) => {
-    item[key] = defaultValueForSchemaField(entry || { type: 'string' });
-  });
+  const item = buildDefaultObjectFromSchemaMap(schemaMap);
   if (Object.keys(item).length === 0) {
     console.warn('[array-item] failed to infer schema map', { moduleName: block?.moduleName, pageId: block?.pageId, fieldPath, spec });
   }
