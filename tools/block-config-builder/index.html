@@ -454,7 +454,7 @@ const FIELD_TYPE_OVERRIDES = {
   source_ip_cidr: 'array_string',
   ip_cidr: 'array_string',
   destination_ip_cidr: 'array_string',
-  ip_version: 'array_integer',
+  ip_version: 'integer',
   query_type: 'array_string',
   domain_suffix: 'array_string',
   server: 'string',
@@ -538,12 +538,48 @@ async function bootstrap() {
   await loadSharedDefinitions();
   const schemaFiles = await discoverSchemaFiles();
   await Promise.all(schemaFiles.map(loadSchema));
+  enrichSchemasWithSharedSections();
   renderWizard();
   renderLibrary();
   renderWorkspace();
   rerenderOutput();
   bindGlobalActions();
   bindWorkspaceDelegation();
+}
+
+function enrichSchemasWithSharedSections() {
+  const shared = state.schemas.get('shared');
+  if (!shared?.pages?.length) return;
+  const sharedPages = new Map(shared.pages.map((page) => [page.page_id, page]));
+  const titleToSharedPage = new Map([
+    ['listen fields', 'listen'],
+    ['dial fields', 'dial'],
+    ['tls fields', 'tls'],
+    ['multiplex fields', 'multiplex'],
+    ['v2ray transport fields', 'v2ray-transport'],
+    ['tcp brutal fields', 'tcp-brutal'],
+    ['udp over tcp fields', 'udp-over-tcp'],
+  ]);
+
+  for (const schema of state.schemas.values()) {
+    if (!Array.isArray(schema.pages)) continue;
+    for (const page of schema.pages) {
+      const fields = page.fields || {};
+      const titles = (page.section_titles || []).map((title) => String(title).trim().toLowerCase());
+      for (const title of titles) {
+        const sharedPageId = titleToSharedPage.get(title);
+        if (!sharedPageId) continue;
+        const sharedPage = sharedPages.get(sharedPageId);
+        if (!sharedPage?.fields) continue;
+        Object.entries(sharedPage.fields).forEach(([key, spec]) => {
+          if (!Object.hasOwn(fields, key)) {
+            fields[key] = structuredClone(spec);
+          }
+        });
+      }
+      page.fields = fields;
+    }
+  }
 }
 
 async function loadSharedDefinitions() {
@@ -691,6 +727,7 @@ async function loadSchema(filename) {
     const text = await (await fetch(url)).text();
     const schema = JSON.parse(text);
     if (schema?.module && Array.isArray(schema.pages)) {
+      schema.raw = schema;
       state.schemas.set(schema.module, schema);
     }
   } catch (error) {
@@ -1080,17 +1117,34 @@ function bindDragHandlers(card) {
   });
 }
 
+function coerceArrayAtom(fieldPath, fieldType, rawValue) {
+  if (fieldType === 'array_integer') {
+    const numeric = Number(rawValue);
+    return Number.isFinite(numeric) ? numeric : null;
+  }
+  const leaf = String(fieldPath || '').split('.').at(-1) || '';
+  if (leaf === 'query_type') {
+    if (typeof rawValue === 'number') return Number.isFinite(rawValue) ? rawValue : null;
+    const token = String(rawValue).trim();
+    if (!token) return null;
+    if (/^-?\d+$/.test(token)) return Number(token);
+    return token;
+  }
+  return String(rawValue);
+}
+
 function bindWorkspaceDelegation() {
-  const normalizeAtomicArrayValue = (value, fieldType) => {
+  const normalizeAtomicArrayValue = (value, fieldType, fieldPath) => {
     if (fieldType === 'array_string') {
-      if (Array.isArray(value)) return value.map((item) => String(item));
+      if (Array.isArray(value)) return value.map((item) => coerceArrayAtom(fieldPath, fieldType, item)).filter((item) => item !== null);
       if (value === '' || value === null || value === undefined) return [];
-      return [String(value)];
+      const atom = coerceArrayAtom(fieldPath, fieldType, value);
+      return atom === null ? [] : [atom];
     }
     if (fieldType === 'array_integer') {
-      if (Array.isArray(value)) return value.map((item) => Number(item)).filter((item) => Number.isFinite(item));
-      const next = Number(value);
-      return Number.isFinite(next) ? [next] : [];
+      if (Array.isArray(value)) return value.map((item) => coerceArrayAtom(fieldPath, fieldType, item)).filter((item) => item !== null);
+      const next = coerceArrayAtom(fieldPath, fieldType, value);
+      return next !== null ? [next] : [];
     }
     return value;
   };
@@ -1102,7 +1156,7 @@ function bindWorkspaceDelegation() {
     const block = state.blocksData.find((item) => item.id === blockId);
     if (!block) return;
     const raw = readInputValue(target, target.dataset.fieldType);
-    setNestedValue(block.values, fieldPath, normalizeAtomicArrayValue(raw, target.dataset.fieldType));
+    setNestedValue(block.values, fieldPath, normalizeAtomicArrayValue(raw, target.dataset.fieldType, fieldPath));
     rerenderOutput({ refreshWorkspace: false });
   };
 
@@ -1158,7 +1212,7 @@ function bindWorkspaceDelegation() {
       const next = [...list];
       const nextItem = next[itemIndex] && typeof next[itemIndex] === 'object' ? { ...next[itemIndex] } : {};
       const raw = parseArrayObjectFieldValue(target.dataset.fieldType, target);
-      nextItem[itemKey] = normalizeAtomicArrayValue(raw, target.dataset.fieldType);
+      setNestedValue(nextItem, itemKey, normalizeAtomicArrayValue(raw, target.dataset.fieldType, itemKey));
       next[itemIndex] = nextItem;
       setNestedValue(currentBlock.values, fieldPath, next);
       rerenderOutput({ refreshWorkspace: true, preserveFocus: true });
@@ -1204,7 +1258,7 @@ function bindWorkspaceDelegation() {
       const select = card.querySelector(`[data-role="array-template-select"][data-field-path="${CSS.escape(fieldPath)}"]`);
       const selectedId = select?.value;
       const tpl = templates.find((item) => item.id === selectedId) || templates[0];
-      const nextItem = structuredClone(tpl?.payload || buildArrayItemFromSchema(fieldSpec));
+      const nextItem = structuredClone(tpl?.payload || buildArrayItemFromSchema(fieldSpec, block, fieldPath));
       const next = Array.isArray(list) ? [...list, nextItem] : [nextItem];
       setNestedValue(block.values, fieldPath, next);
       rerenderOutput({ refreshWorkspace: true });
@@ -1244,8 +1298,8 @@ function bindWorkspaceDelegation() {
       els.errors.textContent = validationError;
       return;
     }
-    const nextValue = type === 'array_integer' ? Number(raw) : raw;
-    if (type === 'array_integer' && !Number.isFinite(nextValue)) return;
+    const nextValue = coerceArrayAtom(fieldPath, type, raw);
+    if (nextValue === null) return;
     const list = getNestedValue(block.values, fieldPath);
     const normalized = Array.isArray(list) ? [...list] : [];
     normalized.push(nextValue);
@@ -1402,7 +1456,8 @@ function renderField(block, fieldName, spec, depth = 0, breadcrumb = []) {
       enumSelect.addEventListener('change', () => {
         if (!enumSelect.value) return;
         const next = Array.isArray(getNestedValue(block.values, fieldName)) ? [...getNestedValue(block.values, fieldName)] : [];
-        const atom = type === 'array_integer' ? Number(enumSelect.value) : enumSelect.value;
+        const atom = coerceArrayAtom(fieldName, type, enumSelect.value);
+        if (atom === null) return;
         next.push(atom);
         setNestedValue(block.values, fieldName, next);
         enumSelect.value = '';
@@ -1500,6 +1555,12 @@ function renderField(block, fieldName, spec, depth = 0, breadcrumb = []) {
 }
 
 function shouldRenderField(block, fieldName) {
+  if (String(fieldName).includes('.')) {
+    const root = String(fieldName).split('.')[0];
+    if (block?.fields?.[root]?.type === 'array_object') {
+      return false;
+    }
+  }
   if (block.pageId === 'tls') {
     if (fieldName === 'enabled') return true;
     const enabled = getNestedValue(block.values, 'enabled');
@@ -1592,10 +1653,32 @@ function bindArrayItemDrag(card) {
   });
 }
 
-function renderArrayObjectItemField(block, fieldPath, itemIndex, key, value) {
+function renderArrayObjectItemField(block, fieldPath, itemIndex, key, value, schemaEntry = null) {
   const field = document.createElement('label');
   field.className = 'field';
-  const spec = inferSpecFromValue(value);
+  const resolvedEntry = resolveSchemaNode(schemaEntry) || schemaEntry || {};
+  const spec = Object.keys(resolvedEntry || {}).length ? resolvedEntry : inferSpecFromValue(value);
+  if (spec?.type === 'object' && spec?.properties && typeof spec.properties === 'object') {
+    field.className = 'field nested-field';
+    field.innerHTML = `<span>${escapeHtml(key)}</span>`;
+    const nested = document.createElement('fieldset');
+    nested.className = 'nested-panel';
+    const nestedValue = value && typeof value === 'object' ? value : {};
+    Object.entries(spec.properties).forEach(([childKey, childSpec]) => {
+      nested.appendChild(
+        renderArrayObjectItemField(
+          block,
+          fieldPath,
+          itemIndex,
+          `${key}.${childKey}`,
+          getNestedValue(nestedValue, childKey),
+          childSpec,
+        ),
+      );
+    });
+    field.appendChild(nested);
+    return field;
+  }
   const allowed = extractEnumValues(key, spec);
   field.innerHTML = `<span>${escapeHtml(key)}</span>`;
   let input;
@@ -1636,20 +1719,200 @@ function renderArrayObjectItemField(block, fieldPath, itemIndex, key, value) {
 }
 
 function extractArrayItemSchemaMap(spec) {
-  const items = spec?.items;
-  if (!items || typeof items !== 'object') return {};
-  if (items.properties && typeof items.properties === 'object') return items.properties;
-  return Object.fromEntries(
-    Object.entries(items).filter(([k]) => !['type', 'description', 'required', 'default'].includes(k))
-  );
+  const resolved = resolveSchemaNode(spec?.items);
+  if (!resolved || typeof resolved !== 'object') return {};
+  if (resolved.properties && typeof resolved.properties === 'object') return resolved.properties;
+  const candidates = resolved.oneOf || resolved.anyOf;
+  if (Array.isArray(candidates)) {
+    for (const candidate of candidates) {
+      const normalized = resolveSchemaNode(candidate);
+      if (normalized?.properties && typeof normalized.properties === 'object') {
+        return normalized.properties;
+      }
+    }
+  }
+  if (resolved.type === 'object') {
+    const schemaLike = Object.fromEntries(
+      Object.entries(resolved).filter(([k]) => !['type', 'description', 'required', 'default'].includes(k))
+    );
+    if (Object.keys(schemaLike).length) return schemaLike;
+  }
+  return {};
 }
 
-function buildArrayItemFromSchema(spec) {
-  const schemaMap = extractArrayItemSchemaMap(spec);
-  const item = {};
-  Object.entries(schemaMap).forEach(([key, entry]) => {
-    item[key] = inferDefault(entry || { type: 'string' });
+function resolveSchemaRef(ref) {
+  if (typeof ref !== 'string') return null;
+  try {
+    if (ref.startsWith('#/')) {
+      for (const schema of state.schemas.values()) {
+        const root = schema?.raw || schema || {};
+        const resolved = ref.slice(2).split('/').reduce((acc, seg) => (acc && typeof acc === 'object' ? acc[seg] : undefined), root);
+        if (resolved !== undefined) return resolved;
+      }
+      return null;
+    }
+    const [fileName, pointer = ''] = ref.split('#');
+    const moduleName = String(fileName || '').replace('.json', '').trim();
+    const schema = state.schemas.get(moduleName);
+    if (!schema) return null;
+    if (!pointer) return schema.raw || null;
+    if (!pointer.startsWith('/')) return null;
+    return pointer.slice(1).split('/').reduce((acc, seg) => (acc && typeof acc === 'object' ? acc[seg] : undefined), schema.raw || {});
+  } catch (err) {
+    console.warn('[schema-ref] failed to resolve ref', ref, err);
+    return null;
+  }
+}
+
+function resolveSchemaNode(node, seen = new Set()) {
+  if (!node || typeof node !== 'object') return node;
+  if (node.$ref) {
+    if (seen.has(node.$ref)) return null;
+    seen.add(node.$ref);
+    const resolved = resolveSchemaRef(node.$ref);
+    return resolveSchemaNode(resolved, seen);
+  }
+  if (Array.isArray(node.oneOf) || Array.isArray(node.anyOf)) {
+    const candidates = node.oneOf || node.anyOf;
+    for (const candidate of candidates) {
+      const resolved = resolveSchemaNode(candidate, seen);
+      if (resolved?.properties || resolved?.type === 'object') return resolved;
+    }
+    return resolveSchemaNode(candidates[0], seen);
+  }
+  return node;
+}
+
+function inferCandidatePagesFromSchema(block, fieldPath) {
+  const leaf = String(fieldPath || '').split('.').at(-1) || '';
+  const sameModulePages = state.schemas.get(block.moduleName)?.pages || [];
+  const keyword = leaf.replace(/_/g, '-').toLowerCase();
+
+  if (leaf === 'rule_set') {
+    const ruleSetPages = state.schemas.get('rule-set')?.pages || [];
+    return ruleSetPages.map((page) => ({ moduleName: 'rule-set', page }));
+  }
+
+  if (leaf === 'rules') {
+    const ruleLike = sameModulePages.filter((page) => {
+      if (page.page_id === block.pageId) return false;
+      const token = `${page.page_id} ${page.title || ''}`.toLowerCase();
+      return token.includes('rule');
+    });
+    return ruleLike.map((page) => ({ moduleName: block.moduleName, page }));
+  }
+
+  const directMatch = sameModulePages.filter((page) => {
+    if (page.page_id === block.pageId) return false;
+    const token = `${page.page_id} ${page.title || ''}`.toLowerCase();
+    return token.includes(keyword);
   });
+  if (directMatch.length) {
+    return directMatch.map((page) => ({ moduleName: block.moduleName, page }));
+  }
+
+  return [];
+}
+
+function setNestedSchemaField(target, path, entry) {
+  const segments = String(path || '').split('.').filter(Boolean);
+  if (!segments.length) return;
+  let cursor = target;
+  for (let i = 0; i < segments.length; i += 1) {
+    const seg = segments[i];
+    const isLeaf = i === segments.length - 1;
+    if (isLeaf) {
+      cursor[seg] = entry;
+      return;
+    }
+    if (!cursor[seg] || typeof cursor[seg] !== 'object') {
+      cursor[seg] = { type: 'object', properties: {} };
+    }
+    if (!cursor[seg].properties || typeof cursor[seg].properties !== 'object') {
+      cursor[seg].properties = {};
+    }
+    cursor = cursor[seg].properties;
+  }
+}
+
+function normalizeSchemaFieldMap(fields) {
+  const normalized = {};
+  Object.entries(fields || {}).forEach(([path, entry]) => {
+    setNestedSchemaField(normalized, path, entry);
+  });
+  return normalized;
+}
+
+function extractInlineArrayItemMapFromBlock(block, fieldPath) {
+  const prefix = `${fieldPath}.`;
+  const prefixed = {};
+  Object.entries(block?.fields || {}).forEach(([path, entry]) => {
+    if (!String(path).startsWith(prefix)) return;
+    const nestedPath = String(path).slice(prefix.length);
+    if (!nestedPath) return;
+    prefixed[nestedPath] = entry;
+  });
+  return prefixed;
+}
+
+function inferArrayItemSchemaMap(block, fieldPath, spec) {
+  const direct = extractArrayItemSchemaMap(spec);
+  if (Object.keys(direct).length) return normalizeSchemaFieldMap(direct);
+
+  const inlinePrefixed = extractInlineArrayItemMapFromBlock(block, fieldPath);
+  if (Object.keys(inlinePrefixed).length) return normalizeSchemaFieldMap(inlinePrefixed);
+
+  const merged = {};
+  const candidates = inferCandidatePagesFromSchema(block, fieldPath);
+  for (const candidate of candidates) {
+    const fields = candidate.page?.fields;
+    if (!fields || typeof fields !== 'object') continue;
+    Object.entries(fields).forEach(([key, entry]) => {
+      if (!Object.hasOwn(merged, key)) merged[key] = entry;
+    });
+  }
+  if (Object.keys(merged).length) {
+    return normalizeSchemaFieldMap(merged);
+  }
+  return {};
+}
+
+function defaultValueForSchemaField(entry = {}) {
+  if (entry.default !== undefined) return structuredClone(entry.default);
+  switch (entry.type) {
+    case 'boolean': return false;
+    case 'integer': return 0;
+    case 'array_integer':
+    case 'array_string':
+    case 'array_object': return [];
+    case 'object': return {};
+    case 'string':
+    default: return '';
+  }
+}
+
+function buildDefaultObjectFromSchemaMap(schemaMap = {}) {
+  const obj = {};
+  Object.entries(schemaMap).forEach(([key, entry]) => {
+    obj[key] = buildDefaultValueFromSchemaEntry(entry);
+  });
+  return obj;
+}
+
+function buildDefaultValueFromSchemaEntry(entry = {}) {
+  const resolved = resolveSchemaNode(entry) || entry || {};
+  if (resolved.type === 'object' && resolved.properties && typeof resolved.properties === 'object') {
+    return buildDefaultObjectFromSchemaMap(resolved.properties);
+  }
+  return defaultValueForSchemaField(resolved);
+}
+
+function buildArrayItemFromSchema(spec, block, fieldPath) {
+  const schemaMap = inferArrayItemSchemaMap(block, fieldPath, spec);
+  const item = buildDefaultObjectFromSchemaMap(schemaMap);
+  if (Object.keys(item).length === 0) {
+    console.warn('[array-item] failed to infer schema map', { moduleName: block?.moduleName, pageId: block?.pageId, fieldPath, spec });
+  }
   return item;
 }
 
@@ -1657,7 +1920,7 @@ function renderArrayObjectField(block, fieldPath, list, spec = {}) {
   const container = document.createElement('div');
   container.className = 'array-object-container';
   const templates = getArrayObjectTemplates(block, fieldPath);
-  const itemSchemaMap = extractArrayItemSchemaMap(spec);
+  const itemSchemaMap = inferArrayItemSchemaMap(block, fieldPath, spec);
 
   const toolbar = document.createElement('div');
   toolbar.className = 'array-object-toolbar';
@@ -1708,9 +1971,9 @@ function renderArrayObjectField(block, fieldPath, list, spec = {}) {
     const body = document.createElement('div');
     body.className = 'array-item-grid';
     const keys = getArrayObjectVisibleKeys(fieldPath, item);
-    const mergedKeys = [...new Set([...keys, ...Object.keys(itemSchemaMap)])];
+    const mergedKeys = [...new Set([...Object.keys(itemSchemaMap), ...keys])];
     mergedKeys.forEach((key) => {
-      body.appendChild(renderArrayObjectItemField(block, fieldPath, index, key, item?.[key]));
+      body.appendChild(renderArrayObjectItemField(block, fieldPath, index, key, getNestedValue(item, key), itemSchemaMap[key]));
     });
     card.appendChild(body);
     container.appendChild(card);

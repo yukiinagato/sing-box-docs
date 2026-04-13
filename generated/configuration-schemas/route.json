@@ -159,7 +159,7 @@
           "description": "Tags of Inbound."
         },
         "ip_version": {
-          "type": "array_integer",
+          "type": "integer",
           "required": false,
           "description": "4 or 6."
         },
@@ -497,7 +497,7 @@
           "description": "If enabled, attempts to connect UDP connection to the destination instead of listen."
         },
         "udp_timeout": {
-          "type": "integer",
+          "type": "string",
           "required": false,
           "default": "Port Protocol 53 dns 123 ntp 443 quic 3478 stun",
           "description": "Timeout for UDP connections."

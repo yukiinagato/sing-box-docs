@@ -58,8 +58,6 @@ NUMBER_FIELD_KEYS = {
     "port",
     "server_port",
     "listen_port",
-    "ip_version",
-    "udp_timeout",
 }
 
 ARRAY_STRING_FIELD_KEYS = {
@@ -69,7 +67,6 @@ ARRAY_STRING_FIELD_KEYS = {
 }
 
 ARRAY_INTEGER_FIELD_KEYS = {
-    "ip_version",
 }
 
 ARRAY_CIDR_FIELD_KEYS = {

@@ -42,9 +42,9 @@ def test_linter_moves_illegal_root_shared_fields_into_outbound():
 
     assert "tls" not in result.config
     assert "transport" not in result.config
-    assert result.config["outbounds"][0]["tls"]["server_name"] == "example.com"
-    assert result.config["outbounds"][0]["transport"]["path"] == "/ws"
-    assert any("illegal root field" in warning or "moved illegal root field" in warning for warning in result.warnings)
+    assert "tls" not in result.config["outbounds"][0]
+    assert "transport" not in result.config["outbounds"][0]
+    assert any("removed illegal root shared field" in warning for warning in result.warnings)
 
 
 def test_linter_rehomes_misplaced_tls_fields_inside_outbound_tls():
@@ -97,9 +97,9 @@ def test_linter_migrates_root_shared_fields_into_inbound_outbound():
     }
     result = ProjectLinter().lint(config)
     assert "tls" not in result.config
-    assert result.config["inbounds"][0]["tls"]["enabled"] is True
-    assert result.config["outbounds"][0]["tls"]["enabled"] is True
-    assert any("migrated root tls" in w for w in result.warnings)
+    assert "tls" not in result.config["inbounds"][0]
+    assert "tls" not in result.config["outbounds"][0]
+    assert any("dropped root tls" in w for w in result.warnings)
 
 
 def test_linter_enforces_root_whitelist():
@@ -159,7 +159,31 @@ def test_linter_wraps_scalar_array_fields_as_atomic_items():
     }
     result = ProjectLinter().lint(config)
     assert result.config["dns"]["rules"][0]["query_type"] == ["AAAA"]
-    assert result.config["route"]["rules"][0]["ip_version"] == [4]
+    assert result.config["route"]["rules"][0]["ip_version"] == 4
+
+
+def test_linter_keeps_query_type_integer_atoms():
+    config = {
+        "dns": {
+            "servers": [{"tag": "dns-local", "type": "udp", "server": "127.0.0.1"}],
+            "rules": [{"query_type": [1, 28, "AAAA"], "server": "dns-local"}],
+        },
+        "route": {"rules": []},
+        "outbounds": [{"type": "direct", "tag": "direct"}],
+        "inbounds": [],
+    }
+    result = ProjectLinter().lint(config)
+    assert result.config["dns"]["rules"][0]["query_type"] == [1, 28, "AAAA"]
+
+
+def test_linter_requires_udp_timeout_to_be_string():
+    config = {
+        "inbounds": [{"type": "mixed", "tag": "mixed-in", "listen_port": 2080, "udp_timeout": 30}],
+        "outbounds": [{"type": "direct", "tag": "direct"}],
+        "route": {"rules": []},
+    }
+    with pytest.raises(ValueError, match="udp_timeout"):
+        ProjectLinter().lint(config)
 
 
 def test_route_rule_schema_required_flags_are_polymorphic():

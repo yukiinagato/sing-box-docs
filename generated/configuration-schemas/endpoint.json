@@ -109,7 +109,7 @@
           "description": "By default, Tailscale's own MTU is used."
         },
         "udp_timeout": {
-          "type": "integer",
+          "type": "string",
           "required": false,
           "description": "UDP NAT expiration time."
         }
@@ -198,7 +198,7 @@
           "description": "WireGuard reserved field bytes."
         },
         "udp_timeout": {
-          "type": "integer",
+          "type": "string",
           "required": false,
           "description": "UDP NAT expiration time."
         },

@@ -96,6 +96,30 @@ class ProjectLinter:
                     node[key] = int(value)
                     warnings.append(f"coerced {next_path} to integer")
                     value = node[key]
+                elif key == "query_type":
+                    if isinstance(value, list):
+                        normalized: list[Any] = []
+                        changed = False
+                        for item in value:
+                            if isinstance(item, bool):
+                                normalized.append(str(item))
+                                changed = True
+                            elif isinstance(item, float) and item.is_integer():
+                                normalized.append(int(item))
+                                changed = True
+                            elif isinstance(item, (int, str)):
+                                normalized.append(item)
+                            else:
+                                normalized.append(str(item))
+                                changed = True
+                        if changed:
+                            node[key] = normalized
+                            warnings.append(f"normalized {next_path} as mixed query_type array")
+                            value = node[key]
+                    elif isinstance(value, (str, int)):
+                        node[key] = [value]
+                        warnings.append(f"wrapped {next_path} scalar into query_type array")
+                        value = node[key]
                 elif key in (ARRAY_STRING_FIELD_KEYS | ARRAY_CIDR_FIELD_KEYS) and isinstance(value, list):
                     casted = [str(item) for item in value]
                     if casted != value:
@@ -136,12 +160,17 @@ class ProjectLinter:
                         except ValueError as exc:
                             raise ValueError(f"{next_path}[{idx}] invalid CIDR: {cidr}") from exc
                 if key == "ip_version":
+                    if value not in (None, 4, 6):
+                        raise ValueError(f"{next_path} invalid ip_version: {value}")
+                if key == "udp_timeout" and value is not None and not isinstance(value, str):
+                    raise ValueError(f"{next_path} must be duration string")
+                if key == "query_type":
                     if isinstance(value, list):
                         for idx, item in enumerate(value):
-                            if item not in {4, 6}:
-                                raise ValueError(f"{next_path}[{idx}] invalid ip_version: {item}")
-                    elif value not in (None, 4, 6):
-                        raise ValueError(f"{next_path} invalid ip_version: {value}")
+                            if not isinstance(item, (str, int)) or isinstance(item, bool):
+                                raise ValueError(f"{next_path}[{idx}] must be string or integer")
+                    elif value is not None and not isinstance(value, (str, int)):
+                        raise ValueError(f"{next_path} must be string, integer, or array")
                 self._validate_ip_cidr_fields(value, next_path)
             return
         if isinstance(node, list):
@@ -265,28 +294,12 @@ class ProjectLinter:
         for key in self.ROOT_SHARED_KEYS:
             if key not in config:
                 continue
-            value = config.pop(key)
+            config.pop(key)
             normalized_key = "transport" if key == "v2ray_transport" else ("multiplex" if key == "mux" else key)
-            migrated = 0
-            for section in ("inbounds", "outbounds"):
-                nodes = config.get(section)
-                if not isinstance(nodes, list):
-                    continue
-                for node in nodes:
-                    if not isinstance(node, dict):
-                        continue
-                    if normalized_key in node:
-                        continue
-                    node[normalized_key] = copy.deepcopy(value)
-                    migrated += 1
-            if migrated > 0:
-                warnings.append(
-                    f"moved illegal root field '{key}' into {migrated} inbound/outbound node(s) as {normalized_key}"
-                )
-                warnings.append(f"migrated root {normalized_key} into {migrated} inbound/outbound node(s)")
-            else:
-                warnings.append(f"detected illegal root field {key}, but no inbound/outbound target found")
-                config[normalized_key] = value
+            warnings.append(
+                f"removed illegal root shared field '{key}'; place it only under compatible inbound/outbound/endpoint nodes"
+            )
+            warnings.append(f"dropped root {normalized_key} to avoid invalid runtime fields")
 
     def _enforce_root_whitelist(
         self,

@@ -894,7 +894,7 @@
           "description": "This item is only available on the gvisor stack, other stacks are endpoint-independent NAT by default."
         },
         "udp_timeout": {
-          "type": "integer",
+          "type": "string",
           "required": false,
           "description": "UDP NAT expiration time."
         },
