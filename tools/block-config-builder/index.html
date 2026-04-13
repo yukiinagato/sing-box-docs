@@ -691,6 +691,7 @@ async function loadSchema(filename) {
     const text = await (await fetch(url)).text();
     const schema = JSON.parse(text);
     if (schema?.module && Array.isArray(schema.pages)) {
+      schema.raw = schema;
       state.schemas.set(schema.module, schema);
     }
   } catch (error) {
@@ -1701,9 +1702,12 @@ function resolveSchemaRef(ref) {
   if (typeof ref !== 'string') return null;
   try {
     if (ref.startsWith('#/')) {
-      const rootSchema = state.schemas.get('shared');
-      const root = rootSchema?.raw || {};
-      return ref.slice(2).split('/').reduce((acc, seg) => (acc && typeof acc === 'object' ? acc[seg] : undefined), root);
+      for (const schema of state.schemas.values()) {
+        const root = schema?.raw || schema || {};
+        const resolved = ref.slice(2).split('/').reduce((acc, seg) => (acc && typeof acc === 'object' ? acc[seg] : undefined), root);
+        if (resolved !== undefined) return resolved;
+      }
+      return null;
     }
     const [fileName, pointer = ''] = ref.split('#');
     const moduleName = String(fileName || '').replace('.json', '').trim();
@@ -1737,29 +1741,51 @@ function resolveSchemaNode(node, seen = new Set()) {
   return node;
 }
 
-function getArrayObjectFallbackPages(block, fieldPath) {
-  if (block.moduleName === 'route' && block.pageId === 'route' && fieldPath === 'rules') {
-    return [{ moduleName: 'route', pageId: 'rule' }, { moduleName: 'route', pageId: 'rule_action' }];
+function inferCandidatePagesFromSchema(block, fieldPath) {
+  const leaf = String(fieldPath || '').split('.').at(-1) || '';
+  const sameModulePages = state.schemas.get(block.moduleName)?.pages || [];
+  const keyword = leaf.replace(/_/g, '-').toLowerCase();
+
+  if (leaf === 'rule_set') {
+    const ruleSetPages = state.schemas.get('rule-set')?.pages || [];
+    return ruleSetPages.map((page) => ({ moduleName: 'rule-set', page }));
   }
-  if (block.moduleName === 'dns' && block.pageId === 'dns' && fieldPath === 'rules') {
-    return [{ moduleName: 'dns', pageId: 'rule' }, { moduleName: 'dns', pageId: 'rule_action' }];
+
+  if (leaf === 'rules') {
+    const ruleLike = sameModulePages.filter((page) => {
+      if (page.page_id === block.pageId) return false;
+      const token = `${page.page_id} ${page.title || ''}`.toLowerCase();
+      return token.includes('rule');
+    });
+    return ruleLike.map((page) => ({ moduleName: block.moduleName, page }));
   }
-  if (fieldPath === 'rule_set') {
-    return [{ moduleName: 'rule-set', pageId: 'rule-set' }];
+
+  const directMatch = sameModulePages.filter((page) => {
+    if (page.page_id === block.pageId) return false;
+    const token = `${page.page_id} ${page.title || ''}`.toLowerCase();
+    return token.includes(keyword);
+  });
+  if (directMatch.length) {
+    return directMatch.map((page) => ({ moduleName: block.moduleName, page }));
   }
+
   return [];
 }
 
 function inferArrayItemSchemaMap(block, fieldPath, spec) {
   const direct = extractArrayItemSchemaMap(spec);
   if (Object.keys(direct).length) return direct;
-  const fallbackPages = getArrayObjectFallbackPages(block, fieldPath);
-  for (const candidate of fallbackPages) {
-    const module = state.schemas.get(candidate.moduleName);
-    const page = module?.pages?.find((item) => item.page_id === candidate.pageId);
-    if (page?.fields && typeof page.fields === 'object' && Object.keys(page.fields).length) {
-      return page.fields;
-    }
+  const merged = {};
+  const candidates = inferCandidatePagesFromSchema(block, fieldPath);
+  for (const candidate of candidates) {
+    const fields = candidate.page?.fields;
+    if (!fields || typeof fields !== 'object') continue;
+    Object.entries(fields).forEach(([key, entry]) => {
+      if (!Object.hasOwn(merged, key)) merged[key] = entry;
+    });
+  }
+  if (Object.keys(merged).length) {
+    return merged;
   }
   return {};
 }
