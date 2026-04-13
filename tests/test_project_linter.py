@@ -169,3 +169,14 @@ def test_route_rule_schema_required_flags_are_polymorphic():
     assert rule_page["fields"]["action"]["required"] is False
     assert rule_page["fields"]["mode"]["required"] is False
     assert rule_page["fields"]["rules"]["required"] is False
+
+
+def test_tls_schema_reality_fields_are_contextual_not_globally_required():
+    with open("generated/configuration-schemas/shared.json", "r", encoding="utf-8") as fh:
+        schema = json.load(fh)
+    tls_page = next(page for page in schema["pages"] if page["page_id"] == "tls")
+    assert tls_page["fields"]["handshake"]["required"] is False
+    assert tls_page["fields"]["private_key"]["required"] is False
+    assert tls_page["fields"]["public_key"]["required"] is False
+    assert tls_page["fields"]["short_id"]["required"] is False
+    assert tls_page["fields"]["external_account.key_id"]["type"] == "string"

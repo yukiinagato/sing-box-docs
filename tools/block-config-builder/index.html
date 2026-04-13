@@ -1743,7 +1743,9 @@ function shouldEnforceRequired(block, fieldName) {
   const leaf = String(fieldName).split('.').at(-1) || '';
   const realityEnabled = getNestedValue(block.values, 'reality.enabled') === true
     || getNestedValue(block.values, 'tls.reality.enabled') === true;
-  if (realityEnabled && ['private_key', 'external_account', 'external_id'].includes(leaf)) return false;
+  if (['handshake', 'private_key'].includes(leaf)) return false;
+  if (['public_key', 'short_id'].includes(leaf)) return realityEnabled;
+  if (realityEnabled && ['external_account', 'external_id'].includes(leaf)) return false;
 
   if (block.moduleName === 'route' && (block.pageId === 'rule' || block.pageId === 'rule_action')) {
     const hasOutbound = Boolean(getNestedValue(block.values, 'outbound'));
@@ -1761,7 +1763,7 @@ function validateField(block, fieldName, value, spec) {
     errs.push('必填欄位不可為空');
   }
   if (value && typeof value === 'object' && value.__parse_error) errs.push('Object JSON 格式錯誤');
-  if (spec.type === 'integer' && typeof value !== 'number') errs.push('需為數字');
+  if (spec.type === 'integer' && value !== '' && value !== null && value !== undefined && typeof value !== 'number') errs.push('需為數字');
   if ((spec.type === 'array_integer' || spec.type === 'array_string' || spec.type === 'array_object') && !Array.isArray(value)) errs.push('需為數組');
   if (typeof value === 'string' && spec.type === 'string') {
     const desc = String(spec.description || '').toLowerCase();
