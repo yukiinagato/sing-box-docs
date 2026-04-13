@@ -1519,6 +1519,12 @@ function renderField(block, fieldName, spec, depth = 0, breadcrumb = []) {
 }
 
 function shouldRenderField(block, fieldName) {
+  if (String(fieldName).includes('.')) {
+    const root = String(fieldName).split('.')[0];
+    if (block?.fields?.[root]?.type === 'array_object') {
+      return false;
+    }
+  }
   if (block.pageId === 'tls') {
     if (fieldName === 'enabled') return true;
     const enabled = getNestedValue(block.values, 'enabled');
@@ -1801,9 +1807,25 @@ function normalizeSchemaFieldMap(fields) {
   return normalized;
 }
 
+function extractInlineArrayItemMapFromBlock(block, fieldPath) {
+  const prefix = `${fieldPath}.`;
+  const prefixed = {};
+  Object.entries(block?.fields || {}).forEach(([path, entry]) => {
+    if (!String(path).startsWith(prefix)) return;
+    const nestedPath = String(path).slice(prefix.length);
+    if (!nestedPath) return;
+    prefixed[nestedPath] = entry;
+  });
+  return prefixed;
+}
+
 function inferArrayItemSchemaMap(block, fieldPath, spec) {
   const direct = extractArrayItemSchemaMap(spec);
   if (Object.keys(direct).length) return normalizeSchemaFieldMap(direct);
+
+  const inlinePrefixed = extractInlineArrayItemMapFromBlock(block, fieldPath);
+  if (Object.keys(inlinePrefixed).length) return normalizeSchemaFieldMap(inlinePrefixed);
+
   const merged = {};
   const candidates = inferCandidatePagesFromSchema(block, fieldPath);
   for (const candidate of candidates) {
